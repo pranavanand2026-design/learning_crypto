@@ -37,3 +37,19 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+
+# -------------------------
+# Coin
+# -------------------------
+class Coin(models.Model):
+    id = models.CharField(max_length=100, primary_key=True)  # coingecko id
+    symbol = models.CharField(max_length=10)
+    name = models.CharField(max_length=100)
+    current_price = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    price_change_24h = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    market_cap = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.symbol.upper()})"

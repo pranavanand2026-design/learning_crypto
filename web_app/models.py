@@ -10,12 +10,12 @@ from django.utils.translation import gettext_lazy as _
 class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
-    display_name = models.CharField(max_length=100)
-    preferred_currency = models.CharField(max_length=3, default='USD')
-    timezone = models.CharField(max_length=50, default='Australia/Sydney')
-    date_format = models.CharField(max_length=20, default='YYYY-MM-DD')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    display_name = models.CharField(max_length=100)  
+    preferred_currency = models.CharField(max_length=3, default='USD')  
+    timezone = models.CharField(max_length=50, default='Australia/Sydney') 
+    date_format = models.CharField(max_length=20, default='YYYY-MM-DD')  
+    created_at = models.DateTimeField(auto_now_add=True)  
+    updated_at = models.DateTimeField(auto_now=True)  
 
     # Override groups / user_permissions to provide unique reverse related_name
     groups = models.ManyToManyField(
@@ -88,7 +88,7 @@ class CurrentPrice(models.Model):
     coin = models.OneToOneField(
         Coin,
         on_delete=models.CASCADE,
-        related_name='live_price'
+        related_name='live_price'  
     )
     price = models.DecimalField(max_digits=20, decimal_places=8)
     currency = models.CharField(max_length=10, default='USD')
@@ -107,17 +107,17 @@ class CurrentPrice(models.Model):
 class PriceCache(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     coin = models.ForeignKey(
-        Coin,
+        Coin, 
         on_delete=models.CASCADE,
         related_name='price_history'
     )
     price = models.DecimalField(
-        max_digits=20,
+        max_digits=20, 
         decimal_places=8,
         default=0.0
     )
     currency = models.CharField(max_length=10, default='USD')
-    price_date = models.DateTimeField(auto_now_add=True)
+    price_date = models.DateTimeField(auto_now_add=True) 
     fetched_at = models.DateTimeField(auto_now_add=True)
     source = models.CharField(max_length=50, default='coingecko')
     price_data = models.JSONField(null=True, blank=True)
@@ -130,3 +130,127 @@ class PriceCache(models.Model):
             models.Index(fields=['coin', 'price_date']),
             models.Index(fields=['fetched_at'])
         ]
+
+
+# -------------------------
+# Holding (per user, per coin, optional simulation)
+# -------------------------
+class Holding(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="holdings")
+    coin = models.ForeignKey(Coin, on_delete=models.CASCADE, related_name="holdings")
+    simulation = models.ForeignKey(Simulation, on_delete=models.CASCADE, related_name="holdings",
+                                   null=True, blank=True)  
+    created_at = models.DateTimeField(auto_now_add=True)
+    quantity = models.DecimalField(
+        max_digits=40, 
+        decimal_places=20, 
+        default=0.0
+    )
+    avg_price = models.DecimalField(
+        max_digits=30, 
+        decimal_places=10, 
+        default=0.0
+    )
+    avg_price_currency = models.CharField(
+        max_length=12,
+        default="USD"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "coin", "simulation"], name="ux_user_coin_simulation_holding")
+        ]
+
+    def __str__(self):
+        return f"Holding {self.user} {self.coin.symbol}: {self.quantity}"
+
+
+# -------------------------
+# Transaction
+# -------------------------
+class Transaction(models.Model):
+    TRANSACTION_TYPE = [
+        ("BUY", "Buy"),
+        ("SELL", "Sell"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions")
+    coin = models.ForeignKey(Coin, on_delete=models.CASCADE, related_name="transactions")
+    simulation = models.ForeignKey(Simulation, on_delete=models.CASCADE, related_name="transactions", null=True, blank=True)
+    type = models.CharField(max_length=10, choices=TRANSACTION_TYPE)
+    quantity = models.DecimalField(
+        max_digits=40, 
+        decimal_places=20, 
+        default=0.0
+    )
+    price = models.DecimalField(
+        max_digits=30, 
+        decimal_places=10, 
+        default=0.0
+    )
+    price_currency = models.CharField(
+        max_length=12,
+        default="USD"
+    )
+    cost_basis = models.DecimalField(
+        max_digits=30,
+        decimal_places=10,
+        default=0.0
+    )
+    realised_profit = models.DecimalField(
+        max_digits=30,
+        decimal_places=10,
+        default=0.0
+    )
+    realised_profit_currency = models.CharField(
+        max_length=12,
+        default="USD"
+    )
+    time = models.DateTimeField(auto_now_add=True)
+    fee = models.DecimalField(
+        max_digits=30, 
+        decimal_places=10, 
+        default=0.0
+    )
+
+    def __str__(self):
+        return f"{self.type} {self.quantity} {self.coin.symbol} @ {self.price} by {self.user}"
+
+
+class PasswordResetToken(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="password_reset_tokens")
+    token = models.CharField(max_length=128, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def mark_used(self):
+        self.used_at = timezone.now()
+        self.save(update_fields=["used_at"])
+
+    def __str__(self):
+        return f"Password reset token for {self.user.email} ({'used' if self.used_at else 'active'})"
+
+
+# -------------------------
+# WatchListItem (join table user <-> coin ; optional simulation)
+# -------------------------
+class WatchListItem(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    coin = models.ForeignKey('Coin', on_delete=models.CASCADE)
+    simulation = models.ForeignKey('Simulation', on_delete=models.CASCADE, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'coin', 'simulation')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.email}'s watchlist - {self.coin.symbol}"

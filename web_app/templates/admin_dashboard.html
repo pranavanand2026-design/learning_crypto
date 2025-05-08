@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard</title>
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --fg:#e5e7eb; --muted:#9ca3af; --accent:#60a5fa; --ok:#22c55e; --bad:#ef4444; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji','Segoe UI Emoji'; background:var(--bg); color:var(--fg); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .head { display:flex; align-items:center; justify-content:space-between; margin-bottom: 16px; }
+    .h1 { font-size: 24px; font-weight: 700; }
+    .btn { background: var(--accent); color:#0b1020; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; }
+    .grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); }
+    .card { background:var(--card); border-radius:12px; padding:16px; }
+    .kpi .label { color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .kpi .value { font-size:28px; font-weight:800; word-break:break-word; line-height:1.15; }
+    .muted { color:var(--muted); font-size:12px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { text-align:left; padding:8px; border-bottom: 1px solid #1f2937; font-size: 14px; }
+    th { color: var(--muted); font-weight:600; }
+    .ok { color: var(--ok); }
+    .bad { color: var(--bad); }
+    .footer { margin-top: 20px; color: var(--muted); font-size: 12px; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#1f2937; color:var(--fg); font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div class="h1">Admin Dashboard</div>
+      <button class="btn" id="refresh">Refresh</button>
+    </div>
+
+    <div id="notice" class="muted"></div>
+
+    <div class="grid">
+      <div class="card kpi">
+        <div class="label">Users</div>
+        <div id="kpi-users" class="value">–</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Simulations</div>
+        <div id="kpi-sims" class="value">–</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Transactions</div>
+        <div id="kpi-txs" class="value">–</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Invested Total</div>
+        <div id="kpi-invested" class="value">–</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Current Value Total</div>
+        <div id="kpi-curr" class="value">–</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">P/L Total</div>
+        <div id="kpi-pl" class="value">–</div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:16px;">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="font-weight:700;">Top Coins</div>
+          <span id="currency" class="pill">USD</span>
+        </div>
+        <table id="top-coins">
+          <thead><tr><th>Coin</th><th>Tx Count</th><th>Net Qty</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Most Active Users</div>
+        <table id="active-users">
+          <thead><tr><th>User</th><th>Transactions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div style="font-weight:700; margin-bottom:8px;">Recent Transactions</div>
+      <table id="recent-txs">
+        <thead>
+          <tr><th>Time</th><th>User</th><th>Type</th><th>Coin</th><th>Qty</th><th>Price</th><th>Simulation</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Users CRUD -->
+    <div class="grid" style="margin-top:16px;">
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Users</div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <input id="u-q" placeholder="Search email/name" style="flex:1; padding:8px; border-radius:8px; border:1px solid #1f2937; background:#0b1222; color:#e5e7eb;" />
+          <button class="btn" id="u-search">Search</button>
+        </div>
+        <table id="u-table"><thead><tr><th>Email</th><th>Name</th><th>Staff</th><th>Active</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Create User</div>
+        <div style="display:grid; gap:8px; grid-template-columns: 1fr;">
+          <input id="cu-email" placeholder="Email" class="in" />
+          <input id="cu-name" placeholder="Display name" class="in" />
+          <input id="cu-pass" placeholder="Password" type="password" class="in" />
+          <button class="btn" id="cu-create">Create</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simulations CRUD -->
+    <div class="grid" style="margin-top:16px;">
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Simulations</div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <input id="s-user" placeholder="Filter by User ID (optional)" class="in" style="flex:1;" />
+          <button class="btn" id="s-load">Load</button>
+        </div>
+        <table id="s-table"><thead><tr><th>Name</th><th>User</th><th>Status</th><th>Start</th><th>End</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Create Simulation</div>
+        <div style="display:grid; gap:8px;">
+          <input id="cs-user" placeholder="User ID" class="in" />
+          <input id="cs-name" placeholder="Name" class="in" />
+          <input id="cs-start" type="date" class="in" />
+          <input id="cs-desc" placeholder="Description (optional)" class="in" />
+          <button class="btn" id="cs-create">Create</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transactions CRUD -->
+    <div class="grid" style="margin-top:16px;">
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Transactions</div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <input id="t-user" placeholder="Filter by User ID" class="in" style="flex:1;" />
+          <input id="t-sim" placeholder="Filter by Simulation ID (optional)" class="in" style="flex:1;" />
+          <button class="btn" id="t-load">Load</button>
+        </div>
+        <table id="t-table"><thead><tr><th>Time</th><th>User</th><th>Type</th><th>Coin</th><th>Qty</th><th>Price</th><th>Sim</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Create Transaction</div>
+        <div style="display:grid; gap:8px;">
+          <input id="ct-user" placeholder="User ID" class="in" />
+          <input id="ct-sim" placeholder="Simulation ID (optional)" class="in" />
+          <select id="ct-type" class="in"><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
+          <input id="ct-coin" placeholder="Coin ID (e.g., bitcoin)" class="in" />
+          <input id="ct-qty" type="number" step="any" placeholder="Quantity" class="in" />
+          <input id="ct-time" type="datetime-local" class="in" />
+          <button class="btn" id="ct-create">Create</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prices CRUD -->
+    <div class="grid" style="margin-top:16px; grid-template-columns: 1fr;">
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Current Prices</div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <input id="cp-coin" placeholder="Coin ID (e.g., bitcoin)" class="in" />
+          <input id="cp-price" type="number" step="any" placeholder="Price" class="in" />
+          <input id="cp-curr" placeholder="Currency (e.g., USD)" class="in" />
+          <button class="btn" id="cp-upsert">Upsert</button>
+          <button class="btn" id="cp-load">Load</button>
+          <button class="btn" id="cp-pop">Save All</button>
+        </div>
+        <table id="cp-table"><thead><tr><th>Coin</th><th>Price</th><th>Curr</th><th>Updated</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Price Cache</div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <input id="pc-coin" placeholder="Coin ID" class="in" />
+          <input id="pc-price" type="number" step="any" placeholder="Price" class="in" />
+          <input id="pc-curr" placeholder="Currency (e.g., USD)" class="in" />
+          <button class="btn" id="pc-add">Add</button>
+          <button class="btn" id="pc-load">Load</button>
+          <button class="btn" id="pc-pop">Populate</button>
+        </div>
+        <table id="pc-table"><thead><tr><th>Coin</th><th>Price</th><th>Curr</th><th>Fetched</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- Holdings & Watchlist CRUD -->
+    <div class="grid" style="margin-top:16px; grid-template-columns: 1fr;">
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Holdings</div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <input id="h-user" placeholder="Filter by User ID" class="in" style="flex:1;" />
+          <input id="h-sim" placeholder="Filter by Simulation ID (optional)" class="in" style="flex:1;" />
+          <button class="btn" id="h-load">Load</button>
+        </div>
+        <div style="display:grid; gap:8px; grid-template-columns: 1fr; margin-bottom:8px;">
+          <input id="ch-user" placeholder="User ID" class="in" />
+          <input id="ch-coin" placeholder="Coin ID" class="in" />
+          <input id="ch-sim" placeholder="Simulation ID (optional)" class="in" />
+          <input id="ch-qty" type="number" step="any" placeholder="Quantity" class="in" />
+          <input id="ch-avg" type="number" step="any" placeholder="Avg Price" class="in" />
+          <input id="ch-curr" placeholder="Avg Price Currency (e.g., USD)" class="in" />
+          <button class="btn" id="ch-upsert">Upsert Holding</button>
+        </div>
+        <table id="h-table"><thead><tr><th>User</th><th>Coin</th><th>Sim</th><th>Qty</th><th>Avg Price</th><th>Curr</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px;">Watchlist</div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <input id="w-user" placeholder="Filter by User ID" class="in" style="flex:1;" />
+          <button class="btn" id="w-load">Load</button>
+        </div>
+        <div style="display:grid; gap:8px; grid-template-columns: 1fr; margin-bottom:8px;">
+          <input id="cw-user" placeholder="User ID" class="in" />
+          <input id="cw-coin" placeholder="Coin ID" class="in" />
+          <input id="cw-sim" placeholder="Simulation ID (optional)" class="in" />
+          <button class="btn" id="cw-add">Add</button>
+        </div>
+        <table id="w-table"><thead><tr><th>User</th><th>Coin</th><th>Sim</th><th></th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <div class="footer">
+      How to manage admins: Create a user via Django admin or create a superuser using the CLI. Ensure the user has <code>is_staff</code> (and optionally <code>is_superuser</code>). Only staff can access this page.
+    </div>
+  </div>
+
+  <script>
+    function fmt(n) { try { return Number(n||0).toLocaleString(); } catch { return String(n||0); } }
+    function cookie(name){return document.cookie.split('; ').find(r=>r.startsWith(name+'='))?.split('=')[1]||''}
+    async function j(method, url, body){
+      const res = await fetch(url, {method, headers:{'Content-Type':'application/json','X-CSRFToken': cookie('csrftoken')}, body: body?JSON.stringify(body):undefined, credentials:'include'});
+      if(!res.ok){throw new Error((await res.text())||res.status)}
+      return res.json().catch(()=>({}))
+    }
+    async function load() {
+      const $ = (id) => document.getElementById(id);
+      const notice = $("notice");
+      notice.textContent = "Loading…";
+      try {
+        const res = await fetch("/api/admin/metrics/");
+        if (!res.ok) throw new Error("Failed to load metrics: " + res.status);
+        const data = await res.json();
+        notice.textContent = "Updated at " + new Date().toLocaleTimeString();
+        $("kpi-users").textContent = fmt(data.total_users);
+        $("kpi-sims").textContent = fmt(data.total_simulations);
+        $("kpi-txs").textContent = fmt(data.total_transactions);
+        $("kpi-invested").textContent = "$ " + fmt(data.invested_total);
+        $("kpi-curr").textContent = "$ " + fmt(data.current_value_total);
+        const pl = (Number(data.current_value_total||0) - Number(data.invested_total||0));
+        const plEl = $("kpi-pl");
+        plEl.textContent = (pl>=0?"$ ":"-$ ") + fmt(Math.abs(pl));
+        $("currency").textContent = (data.currency || "USD").toUpperCase();
+
+        // Top coins
+        const tc = document.querySelector('#top-coins tbody'); tc.innerHTML = '';
+        (data.top_coins||[]).forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${row.coin}</td><td>${fmt(row.tx_count)}</td><td>${fmt(row.net_qty)}</td>`;
+          tc.appendChild(tr);
+        });
+
+        // Active users
+        const au = document.querySelector('#active-users tbody'); au.innerHTML='';
+        (data.active_users||[]).forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${row.user}</td><td>${fmt(row.tx_count)}</td>`;
+          au.appendChild(tr);
+        });
+
+        // Recent txs
+        const rt = document.querySelector('#recent-txs tbody'); rt.innerHTML = '';
+        (data.recent_transactions||[]).forEach(t => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${t.time}</td><td>${t.user}</td><td>${t.type}</td><td>${t.coin}</td><td>${t.quantity}</td><td>${t.price}</td><td>${t.simulation||''}</td>`;
+          rt.appendChild(tr);
+        });
+      } catch (e) {
+        notice.textContent = e.message || 'Load error';
+      }
+    }
+    document.getElementById('refresh').addEventListener('click', load);
+    load();
+
+    // Users CRUD handlers
+    document.getElementById('u-search').addEventListener('click', async ()=>{
+      const q=document.getElementById('u-q').value; const data = await (await fetch(`/api/admin/users/?q=${encodeURIComponent(q)}`)).json();
+      const tb=document.querySelector('#u-table tbody'); tb.innerHTML='';
+      (data.results||[]).forEach(u=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${u.email}</td><td>${u.display_name||''}</td><td>${u.is_staff? '✔':''}</td><td>${u.is_active? '✔':''}</td>
+        <td><button data-id="${u.id}" class="btn btn-sm" style="padding:4px 8px;">Toggle Staff</button>
+        <button data-did="${u.id}" class="btn btn-sm" style="padding:4px 8px; background:#ef4444; color:#111">Delete</button></td>`;
+        tb.appendChild(tr);
+      });
+      tb.querySelectorAll('button[data-id]').forEach(b=>{
+        b.onclick=async()=>{ await j('PATCH', `/api/admin/users/${b.dataset.id}/`, {is_staff:true}); document.getElementById('u-search').click(); };
+      });
+      tb.querySelectorAll('button[data-did]').forEach(b=>{
+        b.onclick=async()=>{ await fetch(`/api/admin/users/${b.dataset.did}/`, {method:'DELETE', headers:{'X-CSRFToken':cookie('csrftoken')}}); document.getElementById('u-search').click(); };
+      });
+      // Append inline Edit buttons to allow updating user details
+      tb.querySelectorAll('tr').forEach(tr=>{
+        const del = tr.querySelector('button[data-did]');
+        const uid = del && del.dataset && del.dataset.did;
+        if(!uid) return;
+        const actionTd = del.parentElement;
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.className = 'btn btn-sm';
+        editBtn.style = 'padding:4px 8px; margin-right:6px;';
+        editBtn.addEventListener('click', async ()=>{
+          // Current values from the row
+          const email = tr.children[0]?.textContent || '';
+          const currName = tr.children[1]?.textContent || '';
+          const name = prompt('Display name for '+email, currName || '');
+          if (name === null) return;
+          const staff = confirm('Should this user be staff? OK=yes, Cancel=no');
+          const active = confirm('Should this user be active? OK=yes, Cancel=no');
+          await j('PATCH', `/api/admin/users/${uid}/`, {display_name:name, is_staff:staff, is_active:active});
+          document.getElementById('u-search').click();
+        });
+        actionTd.prepend(editBtn);
+      });
+    });
+    document.getElementById('cu-create').addEventListener('click', async ()=>{
+      const body={email:document.getElementById('cu-email').value, display_name:document.getElementById('cu-name').value, password:document.getElementById('cu-pass').value};
+      await j('POST','/api/admin/users/', body); document.getElementById('u-search').click();
+    });
+
+    // Simulations CRUD
+    async function loadSims(){
+      const user=document.getElementById('s-user').value.trim();
+      const url = '/api/admin/simulations/' + (user?`?user_id=${encodeURIComponent(user)}`:'');
+      const data = await (await fetch(url)).json();
+      const tb=document.querySelector('#s-table tbody'); tb.innerHTML='';
+      (data.results||[]).forEach(s=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${s.name}</td><td>${s.user}</td><td>${s.status}</td><td>${s.start_date}</td><td>${s.end_date||''}</td>
+        <td><button class="btn btn-sm" data-sid="${s.id}" style="padding:4px 8px; background:#ef4444; color:#111">Delete</button></td>`;
+        tb.appendChild(tr);
+      });
+      tb.querySelectorAll('button[data-sid]').forEach(b=>{
+        b.onclick=async()=>{ await fetch(`/api/admin/simulations/${b.dataset.sid}/`, {method:'DELETE', headers:{'X-CSRFToken':cookie('csrftoken')}}); loadSims(); };
+      });
+    }
+    document.getElementById('s-load').addEventListener('click', loadSims);
+    document.getElementById('cs-create').addEventListener('click', async ()=>{
+      const body={user_id:document.getElementById('cs-user').value, name:document.getElementById('cs-name').value, start_date:document.getElementById('cs-start').value, description:document.getElementById('cs-desc').value};
+      await j('POST','/api/admin/simulations/', body); loadSims();
+    });
+
+    // Transactions CRUD
+    async function loadTxs(){
+      const user=document.getElementById('t-user').value.trim();
+      const sim=document.getElementById('t-sim').value.trim();
+      const params = new URLSearchParams(); if(user) params.set('user_id', user); if(sim) params.set('sim_id', sim);
+      const data = await (await fetch('/api/admin/transactions/?'+params.toString())).json();
+      const tb=document.querySelector('#t-table tbody'); tb.innerHTML='';
+      (data.results||[]).forEach(t=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${t.time}</td><td>${t.user}</td><td>${t.type}</td><td>${t.coin}</td><td>${t.quantity}</td><td>${t.price}</td><td>${t.simulation||''}</td>
+        <td><button class="btn btn-sm" data-tid="${t.id}" style="padding:4px 8px; background:#ef4444; color:#111">Delete</button></td>`;
+        tb.appendChild(tr);
+      });
+      tb.querySelectorAll('button[data-tid]').forEach(b=>{
+        b.onclick=async()=>{ await fetch(`/api/admin/transactions/${b.dataset.tid}/`, {method:'DELETE', headers:{'X-CSRFToken':cookie('csrftoken')}}); loadTxs(); };
+      });
+    }
+    document.getElementById('t-load').addEventListener('click', loadTxs);
+    document.getElementById('ct-create').addEventListener('click', async ()=>{
+      const body={user_id:document.getElementById('ct-user').value, simulation_id:document.getElementById('ct-sim').value||null, type:document.getElementById('ct-type').value, coin_id:document.getElementById('ct-coin').value, quantity:document.getElementById('ct-qty').value, time:document.getElementById('ct-time').value?new Date(document.getElementById('ct-time').value).toISOString():null};
+      await j('POST','/api/admin/transactions/', body); loadTxs();
+    });
+
+    // Current Prices CRUD
+    async function loadCP(){
+      // Fetch top 20 coins from CoinGecko via backend proxy
+      const curr=(document.getElementById('cp-curr').value||'USD').toLowerCase();
+      const params = new URLSearchParams({
+        endpoint: 'coins/markets',
+        vs_currency: curr,
+        order: 'market_cap_desc',
+        per_page: '20',
+        page: '1',
+        sparkline: 'false'
+      });
+      const res = await fetch('/api/coingecko_proxy/?'+params.toString());
+      const data = await res.json().catch(()=>({}));
+      const list = (data && data.data) ? data.data : [];
+      const tb=document.querySelector('#cp-table tbody'); tb.innerHTML='';
+      window._cpRows = list; // keep for Save All
+      if(list.length === 0){
+        const tr=document.createElement('tr');
+        tr.innerHTML = `<td colspan="5" class="muted">No data from CoinGecko. Try again.</td>`;
+        tb.appendChild(tr);
+        return;
+      }
+      list.forEach(row=>{
+        const tr=document.createElement('tr');
+        const coinId = row.id || row.symbol || '';
+        const price = row.current_price ?? '';
+        tr.innerHTML=`<td>${coinId}</td><td>${price}</td><td>${curr.toUpperCase()}</td><td>${row.last_updated||''}</td>
+        <td><button class="btn btn-sm" data-upsert-id="${coinId}" data-upsert-price="${price}" style="padding:4px 8px;">Upsert</button></td>`;
+        tb.appendChild(tr);
+      });
+      tb.querySelectorAll('button[data-upsert-id]').forEach(b=>{
+        b.onclick=async()=>{
+          const coinId=b.getAttribute('data-upsert-id');
+          const price=b.getAttribute('data-upsert-price');
+          await j('POST','/api/admin/current-prices/', {coin_id:coinId, price:price, currency:curr.toUpperCase()});
+        };
+      })
+    }
+    document.getElementById('cp-load').addEventListener('click', loadCP);
+    document.getElementById('cp-upsert').addEventListener('click', async()=>{
+      const body={coin_id:document.getElementById('cp-coin').value, price:document.getElementById('cp-price').value, currency:document.getElementById('cp-curr').value};
+      await j('POST','/api/admin/current-prices/', body); loadCP();
+    });
+    document.getElementById('cp-pop').addEventListener('click', async()=>{
+      // Save all rows loaded from CoinGecko into CurrentPrice table
+      const curr=(document.getElementById('cp-curr').value||'USD').toUpperCase();
+      const rows = Array.isArray(window._cpRows)?window._cpRows:[];
+      for(const r of rows){
+        const coinId=r && (r.id||r.symbol);
+        const price=r && r.current_price;
+        if(!coinId || price==null) continue;
+        try{ await j('POST','/api/admin/current-prices/', {coin_id:coinId, price:price, currency:curr}); }catch(e){}
+      }
+      // After upserting, show DB state via load of admin endpoint
+      try{
+        const resp = await fetch('/api/admin/current-prices/');
+        const data = await resp.json();
+        const tb=document.querySelector('#cp-table tbody'); tb.innerHTML='';
+        const rows2=(data && data.results) ? data.results : [];
+        if(rows2.length===0){
+          const tr=document.createElement('tr'); tr.innerHTML = `<td colspan="5" class="muted">No current price entries saved.</td>`; tb.appendChild(tr);
+        } else {
+          rows2.forEach(cp=>{
+            const tr=document.createElement('tr');
+            tr.innerHTML=`<td>${cp.coin_id}</td><td>${cp.price}</td><td>${cp.currency}</td><td>${cp.last_updated}</td>
+            <td><button class=\"btn btn-sm\" data-cpid=\"${cp.id}\" style=\"padding:4px 8px; background:#ef4444; color:#111\">Delete</button></td>`;
+            tb.appendChild(tr);
+          });
+          tb.querySelectorAll('button[data-cpid]').forEach(b=>{
+            b.onclick=async()=>{ await fetch(`/api/admin/current-prices/${b.dataset.cpid}/`, {method:'DELETE', headers:{'X-CSRFToken':cookie('csrftoken')}}); document.getElementById('cp-load').click(); };
+          })
+        }
+      }catch(e){}
+    });
+
+    // Price Cache CRUD
+    async function loadPC(){
+      const coin=document.getElementById('pc-coin').value.trim();
+      const url='/api/admin/price-cache/' + (coin?`?coin_id=${encodeURIComponent(coin)}`:'');
+      const data=await (await fetch(url)).json();
+      const tb=document.querySelector('#pc-table tbody'); tb.innerHTML='';
+      const rows = (data && data.results) ? data.results : [];
+      if(rows.length === 0){
+        const tr=document.createElement('tr');
+        tr.innerHTML = `<td colspan="5" class="muted">No price cache entries. Use Add to create one.</td>`;
+        tb.appendChild(tr);
+        return;
+      }
+      rows.forEach(pc=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${pc.coin_id}</td><td>${pc.price}</td><td>${pc.currency}</td><td>${pc.fetched_at}</td>
+        <td><button class="btn btn-sm" data-pcid="${pc.id}" style="padding:4px 8px; background:#ef4444; color:#111">Delete</button></td>`;
+        tb.appendChild(tr);
+      });
+      tb.querySelectorAll('button[data-pcid]').forEach(b=>{
+        b.onclick=async()=>{ await fetch(`/api/admin/price-cache/${b.dataset.pcid}/`, {method:'DELETE', headers:{'X-CSRFToken':cookie('csrftoken')}}); loadPC(); };
+      })
+    }
+    document.getElementById('pc-load').addEventListener('click', loadPC);
+    document.getElementById('pc-add').addEventListener('click', async()=>{
+      const body={coin_id:document.getElementById('pc-coin').value, price:document.getElementById('pc-price').value, currency:document.getElementById('pc-curr').value};
+      await j('POST','/api/admin/price-cache/', body); loadPC();
+    });
+    document.getElementById('pc-pop').addEventListener('click', async()=>{
+      // Populate price cache from Coin table
+      const coins=await (await fetch('/api/coins/')).json();
+      const curr=document.getElementById('pc-curr').value||'USD';
+      const list = coins && coins.results ? coins.results : (Array.isArray(coins)?coins:[]);
+      for(const c of list){
+        if(!c || !c.id) continue;
+        try{ await j('POST','/api/admin/price-cache/', {coin_id:c.id, price:c.current_price||0, currency:curr}); }catch(e){}
+      }
+      loadPC();
+    });
+
+    // Holdings CRUD
+    async function loadHoldings(){
+      const user=document.getElementById('h-user').value.trim();
+      const sim=document.getElementById('h-sim').value.trim();
+      const params=new URLSearchParams(); if(user) params.set('user_id', user); if(sim) params.set('sim_id', sim);
+      const data=await (await fetch('/api/admin/holdings/?'+params.toString())).json();
+      const tb=document.querySelector('#h-table tbody'); tb.innerHTML='';
+      (data.results||[]).forEach(h=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${h.user}</td><td>${h.coin_id}</td><td>${h.simulation||''}</td><td>${h.quantity}</td><td>${h.avg_price}</td><td>${h.avg_price_currency}</td>
+        <td><button class="btn btn-sm" data-hid="${h.id}" style="padding:4px 8px; background:#ef4444; color:#111">Delete</button></td>`;
+        tb.appendChild(tr);
+      });
+      tb.querySelectorAll('button[data-hid]').forEach(b=>{
+        b.onclick=async()=>{ await fetch(`/api/admin/holdings/${b.dataset.hid}/`, {method:'DELETE', headers:{'X-CSRFToken':cookie('csrftoken')}}); loadHoldings(); };
+      })
+    }
+    document.getElementById('h-load').addEventListener('click', loadHoldings);
+    document.getElementById('ch-upsert').addEventListener('click', async()=>{
+      const body={user_id:document.getElementById('ch-user').value, coin_id:document.getElementById('ch-coin').value, simulation_id:document.getElementById('ch-sim').value||null, quantity:document.getElementById('ch-qty').value, avg_price:document.getElementById('ch-avg').value, avg_price_currency:document.getElementById('ch-curr').value};
+      await j('POST','/api/admin/holdings/', body); loadHoldings();
+    });
+
+    // Watchlist CRUD
+    async function loadWatch(){
+      const user=document.getElementById('w-user').value.trim();
+      const url='/api/admin/watchlist/' + (user?`?user_id=${encodeURIComponent(user)}`:'');
+      const data=await (await fetch(url)).json();
+      const tb=document.querySelector('#w-table tbody'); tb.innerHTML='';
+      (data.results||[]).forEach(w=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${w.user}</td><td>${w.coin_id}</td><td>${w.simulation||''}</td>
+        <td><button class="btn btn-sm" data-wid="${w.id}" style="padding:4px 8px; background:#ef4444; color:#111">Delete</button></td>`;
+        tb.appendChild(tr);
+      });
+      tb.querySelectorAll('button[data-wid]').forEach(b=>{
+        b.onclick=async()=>{ await fetch(`/api/admin/watchlist/${b.dataset.wid}/`, {method:'DELETE', headers:{'X-CSRFToken':cookie('csrftoken')}}); loadWatch(); };
+      })
+    }
+    document.getElementById('w-load').addEventListener('click', loadWatch);
+    document.getElementById('cw-add').addEventListener('click', async()=>{
+      const body={user_id:document.getElementById('cw-user').value, coin_id:document.getElementById('cw-coin').value, simulation_id:document.getElementById('cw-sim').value||null};
+      await j('POST','/api/admin/watchlist/', body); loadWatch();
+    });
+  </script>
+</body>
+</html>

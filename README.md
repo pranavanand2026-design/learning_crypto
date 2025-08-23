@@ -2,6 +2,8 @@
 
 A cryptocurrency portfolio management and trading simulation platform designed for beginners to learn crypto trading without financial risk.
 
+**Live Demo**: [https://cryptodash-404454446141.us-central1.run.app](https://cryptodash-404454446141.us-central1.run.app)
+
 ## Problem Statement
 
 The cryptocurrency market presents significant barriers for newcomers:
@@ -128,6 +130,38 @@ This will:
 3. Install frontend dependencies
 4. Start backend server (http://localhost:8000)
 5. Start frontend dev server (http://localhost:5173)
+
+## Deployment
+
+The application is deployed on **Google Cloud Run**, a fully managed serverless platform that automatically scales containers based on traffic.
+
+### Deployment Architecture
+```
+┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│  Cloud Build    │──────│   Cloud Run     │──────│  Cloud SQL      │
+│  (CI/CD)        │      │  (Container)    │      │  (PostgreSQL)   │
+└─────────────────┘      └─────────────────┘      └─────────────────┘
+        │                        │
+        ▼                        ▼
+┌─────────────────┐      ┌─────────────────┐
+│  Container      │      │  Secret Manager │
+│  Registry       │      │  (API Keys)     │
+└─────────────────┘      └─────────────────┘
+```
+
+### Key Deployment Features
+- **Multi-stage Docker Build**: Frontend compiled with Node.js, served by Django with WhiteNoise
+- **Zero-downtime Deployments**: New revisions deploy without service interruption
+- **Auto-scaling**: Scales from 0 to N instances based on request volume
+- **Managed SSL**: HTTPS certificates automatically provisioned and renewed
+- **Environment Isolation**: Secrets injected at runtime via environment variables
+
+### Build Process
+```bash
+# Build and deploy with Cloud Build
+gcloud builds submit --tag gcr.io/PROJECT_ID/cryptodash
+gcloud run deploy cryptodash --image gcr.io/PROJECT_ID/cryptodash --platform managed
+```
 
 ## API Documentation
 

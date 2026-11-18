@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { money } from "../lib/format";
 import { useAuth } from "../state/auth";
 import { Tape } from "./Floor";
+import HeroArt from "./HeroArt";
 import { JournalIcon, MarketIcon, ProgressIcon } from "./Icons";
 
 const STEPS = [
@@ -34,7 +35,10 @@ export default function Landing({ rows, ticks }) {
   return (
     <>
       <section className="relative left-1/2 -mt-6 w-screen -translate-x-1/2 overflow-hidden bg-floor text-on-floor md:-mt-10">
-        <div className="mx-auto max-w-page px-4 pb-16 pt-16 md:px-6 md:pb-24 md:pt-24">
+        <div className="opacity-35 xl:opacity-100">
+          <HeroArt />
+        </div>
+        <div className="relative mx-auto max-w-page px-4 pb-16 pt-16 md:px-6 md:pb-28 md:pt-28">
           <h1 className="max-w-4xl text-[2.5rem] font-light leading-[1.04] tracking-tight md:text-[4.25rem]">
             Find out what kind of investor you are, before it costs you.
           </h1>
@@ -51,7 +55,11 @@ export default function Landing({ rows, ticks }) {
             </Link>
           </div>
         </div>
-        {tape.length > 0 && <Tape rows={tape.slice(0, 40)} price={price} />}
+        {tape.length > 0 && (
+          <div className="relative bg-floor/80 backdrop-blur-sm">
+            <Tape rows={tape.slice(0, 40)} price={price} />
+          </div>
+        )}
       </section>
 
       <section aria-label="How it works" className="border-b border-rule py-16 md:py-20">

@@ -16,11 +16,15 @@ export default {
       marker: token("marker"),
       gain: token("gain"),
       loss: token("loss"),
+      floor: token("floor"),
+      "on-floor": token("on-floor"),
+      "gain-hi": token("gain-hi"),
+      "loss-hi": token("loss-hi"),
       white: "#fff",
     },
     fontFamily: {
-      sans: ['"Geist"', "ui-sans-serif", "system-ui", "sans-serif"],
-      serif: ['"Newsreader"', "ui-serif", "Georgia", "serif"],
+      sans: ['"Geist Variable"', "ui-sans-serif", "system-ui", "sans-serif"],
+      serif: ['"Newsreader Variable"', "ui-serif", "Georgia", "serif"],
     },
     fontSize: {
       xs: ["0.8125rem", { lineHeight: "1.15rem" }],   // 13

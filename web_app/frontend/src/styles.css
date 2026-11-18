@@ -12,6 +12,10 @@
   --marker: 232 212 77;
   --gain: 31 110 91;
   --loss: 166 71 58;
+  --floor: 20 36 48;
+  --on-floor: 237 241 238;
+  --gain-hi: 112 196 168;
+  --loss-hi: 236 140 122;
   color-scheme: light;
 }
 
@@ -25,6 +29,7 @@
     --marker: 217 200 74;
     --gain: 99 181 156;
     --loss: 220 134 118;
+    --floor: 9 15 19;
     color-scheme: dark;
   }
 }
@@ -38,6 +43,7 @@
   --marker: 217 200 74;
   --gain: 99 181 156;
   --loss: 220 134 118;
+  --floor: 9 15 19;
   color-scheme: dark;
 }
 
@@ -115,3 +121,9 @@
 
 .scroll-x { scrollbar-width: none; }
 .scroll-x::-webkit-scrollbar { display: none; }
+
+/* The live tape along the bottom of the trading floor */
+@keyframes tape { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.tape { animation: tape 90s linear infinite; width: max-content; }
+.tape:hover { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .tape { animation: none; } }

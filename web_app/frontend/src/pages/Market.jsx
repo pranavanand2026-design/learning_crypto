@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useApi } from "../lib/hooks";
 import { useLiveTicks } from "../lib/live";
-import { compact, money, pct, tone } from "../lib/format";
-import { useAuth } from "../state/auth";
+import { compact, pct, tone } from "../lib/format";
 import CoinMark from "../components/CoinMark";
 import Sparkline from "../components/Sparkline";
 import LivePrice from "../components/LivePrice";
 import { HeatMeter } from "../components/Heat";
 import { Wire } from "../components/Headlines";
+import Floor from "../components/Floor";
 import { Loading, Problem } from "../components/States";
 
 const SORTS = [
@@ -17,23 +17,7 @@ const SORTS = [
   { id: "calm", label: "Calmest", fn: (a, b) => a.heat.score - b.heat.score },
 ];
 
-function GuestIntro() {
-  const { config } = useAuth();
-  return (
-    <section className="mb-10 flex flex-col gap-6 border-b border-rule pb-10 md:flex-row md:items-end md:justify-between">
-      <h1 className="max-w-2xl text-3xl font-light tracking-tight md:text-4xl">Practice trading on the live market.</h1>
-      <div className="flex shrink-0 flex-col items-start gap-3 md:items-end">
-        <p className="text-graphite">Start with {money(config.starting_cash, { digits: 0 })} in paper money.</p>
-        <Link to="/signup" className="btn-ink">
-          Create account
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 export default function Market() {
-  const { user } = useAuth();
   const markets = useApi("/market/", { interval: 90000 });
   const news = useApi("/news/?linked=1", { interval: 600000 });
   const [sort, setSort] = useState("cap");
@@ -49,12 +33,13 @@ export default function Market() {
   }, [markets.data, sort, query]);
 
   const visible = rows.slice(0, limit);
-  const ticks = useLiveTicks(visible.map((r) => r.live_product));
+  const all = markets.data?.results || [];
+  const ticks = useLiveTicks([...visible, ...all.slice(0, 40)].map((r) => r.live_product));
   const search = useApi(query.trim().length >= 2 && rows.length === 0 ? `/market/search/?q=${encodeURIComponent(query.trim())}` : null);
 
   return (
     <div>
-      {!user && <GuestIntro />}
+      <Floor rows={all} ticks={ticks} />
       <Wire items={news.data?.results} />
 
       <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

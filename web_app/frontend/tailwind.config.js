@@ -17,6 +17,7 @@ export default {
       gain: token("gain"),
       loss: token("loss"),
       floor: token("floor"),
+      brand: token("brand"),
       "on-floor": token("on-floor"),
       "gain-hi": token("gain-hi"),
       "loss-hi": token("loss-hi"),

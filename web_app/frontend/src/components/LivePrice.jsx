@@ -10,7 +10,7 @@ export default function LivePrice({ value, className = "", digits }) {
     prev.current = value;
   }, [value]);
   return (
-    <span key={flash} className={`num ${flash ? "tick" : ""} ${className}`}>
+    <span key={flash} className={`num inline-block ${flash ? "tick" : ""} ${className}`}>
       {money(value, { digits })}
     </span>
   );

@@ -4,7 +4,7 @@ import { useAuth } from "../state/auth";
 import { useApi } from "../lib/hooks";
 import { useLiveTicks } from "../lib/live";
 import { money, pct, tone } from "../lib/format";
-import { Wordmark } from "../components/Shell";
+import { Wordmark } from "../components/Brand";
 import CoinMark from "../components/CoinMark";
 import LivePrice from "../components/LivePrice";
 
@@ -134,7 +134,7 @@ export function Signup() {
     setError(null);
     try {
       await signup({ ...form, email: form.email.trim().toLowerCase(), captcha_token: captcha });
-      navigate("/", { replace: true });
+      navigate("/welcome", { replace: true });
     } catch (err) {
       if (err.status === 400 && err.message.includes("captcha")) {
         navigate("/login", { state: { notice: "Account created. Log in to continue." } });
@@ -148,7 +148,7 @@ export function Signup() {
 
   return (
     <Frame title="Create your account">
-      <p className="mt-2 text-graphite">You'll start with {money(config.starting_cash, { digits: 0 })} in paper money.</p>
+      <p className="mt-2 text-graphite">You'll start with {money(config.starting_cash, { digits: 0, raw: true })} in practice money.</p>
       <form onSubmit={submit} className="mt-8 space-y-5">
         <Field label="Name" autoComplete="name" required value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
         <Field label="Email" type="email" autoComplete="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />

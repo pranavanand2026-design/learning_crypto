@@ -1,10 +1,10 @@
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth } from "../state/auth";
 import { useAccount } from "../state/account";
 import { money } from "../lib/format";
-import { useTheme } from "../lib/theme";
-import { useLiveStatus } from "../lib/live";
+import { Wordmark } from "./Brand";
+import Avatar from "./Avatar";
 
 const NAV = [
   { to: "/", label: "Market", end: true },
@@ -13,36 +13,17 @@ const NAV = [
   { to: "/progress", label: "Progress" },
 ];
 
-export function Wordmark({ className = "" }) {
-  return (
-    <Link to="/" className={`group inline-flex items-center gap-2 font-semibold tracking-tight ${className}`}>
-      <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden>
-        <rect width="32" height="32" rx="8" className="fill-ink" />
-        <path d="M7 21l5-6 4 3 4-7 5 5" fill="none" className="stroke-marker" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <span>CryptoDash</span>
-    </Link>
-  );
-}
-
-function LiveDot() {
-  const status = useLiveStatus();
-  if (status === "idle") return null;
-  const label = status === "live" ? "Live prices" : status === "connecting" ? "Connecting" : "Prices delayed";
-  return (
-    <span className="hidden items-center gap-1.5 text-xs text-graphite lg:inline-flex" title={label}>
-      <span className={`h-1.5 w-1.5 rounded-full ${status === "live" ? "bg-gain" : "bg-graphite/50"}`} />
-      {label}
-    </span>
-  );
-}
 
 export default function Shell() {
   const { user } = useAuth();
   const { data: account } = useAccount();
-  const [theme, setTheme] = useTheme();
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  // First visit after signing up: set up before trading.
+  if (user && account && !account.onboarded) return <Navigate to="/welcome" replace />;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -69,22 +50,19 @@ export default function Shell() {
             </nav>
           )}
           <div className="ml-auto flex items-center gap-3">
-            <LiveDot />
             {user ? (
               <>
-                {account && (
-                  <Link to="/portfolio" className="num hidden text-sm sm:block" title="Cash available">
-                    <span className="text-graphite">Cash </span>
-                    {money(account.cash)}
+                <div className="flex items-center rounded-chip border border-rule bg-sheet py-1 pl-4 pr-1">
+                  {account && (
+                    <Link to="/portfolio" className="mr-3 hidden leading-tight sm:block" title="Cash available to trade">
+                      <span className="block text-[11px] text-graphite">Cash</span>
+                      <span className="num block text-sm font-medium">{money(account.cash, { digits: 0 })}</span>
+                    </Link>
+                  )}
+                  <Link to="/settings" aria-label="Settings" className="rounded-full">
+                    <Avatar user={user} size={32} />
                   </Link>
-                )}
-                <Link
-                  to="/account"
-                  className="grid h-8 w-8 place-items-center rounded-full bg-ink text-xs font-semibold text-paper"
-                  aria-label="Account"
-                >
-                  {(user.display_name || user.email || "?").slice(0, 1).toUpperCase()}
-                </Link>
+                </div>
               </>
             ) : (
               <>
@@ -123,12 +101,7 @@ export default function Shell() {
       <footer className="border-t border-rule">
         <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-3 px-4 py-5 text-xs text-graphite md:px-6">
           <span>Practice money, live markets. Nothing here is financial advice.</span>
-          <span className="flex items-center gap-4">
-            <span>Prices from CoinGecko and Coinbase</span>
-            <button className="link" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              {theme === "dark" ? "Light theme" : "Dark theme"}
-            </button>
-          </span>
+          <span>Prices from CoinGecko and Coinbase</span>
         </div>
       </footer>
     </div>

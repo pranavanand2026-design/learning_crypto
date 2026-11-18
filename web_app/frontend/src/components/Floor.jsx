@@ -95,7 +95,7 @@ export default function Floor({ rows, ticks }) {
                   <span className="font-medium">{r.symbol}</span>
                   <span className={`num ml-auto text-xs ${changeTone(r.change_24h)}`}>{pct(r.change_24h)}</span>
                 </div>
-                <LivePrice value={price(r)} className="mt-3 block text-lg font-light" />
+                <div className="mt-3"><LivePrice value={price(r)} className="text-lg font-light" /></div>
                 <Sparkline points={r.sparkline} width={160} height={28} fluid className="mt-2 text-on-floor/45" />
               </Link>
             </li>

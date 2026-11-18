@@ -14,6 +14,7 @@
   --loss: 166 71 58;
   --floor: 20 36 48;
   --on-floor: 237 241 238;
+  --brand: 160 130 8;
   --gain-hi: 112 196 168;
   --loss-hi: 236 140 122;
   color-scheme: light;
@@ -30,6 +31,7 @@
     --gain: 99 181 156;
     --loss: 220 134 118;
     --floor: 9 15 19;
+    --brand: 234 214 80;
     color-scheme: dark;
   }
 }
@@ -44,6 +46,7 @@
   --gain: 99 181 156;
   --loss: 220 134 118;
   --floor: 9 15 19;
+  --brand: 234 214 80;
   color-scheme: dark;
 }
 
@@ -95,12 +98,18 @@
   .ruled > * + * { @apply border-t border-rule; }
 }
 
-/* Price ticks: a brief highlighter wash when a live price changes */
+/* Price ticks: a highlighter stroke under the number that draws away */
 @keyframes tick {
-  from { background-color: rgb(var(--marker) / 0.45); }
-  to { background-color: transparent; }
+  from { background-size: 100% 2px; }
+  to { background-size: 0% 2px; }
 }
-.tick { animation: tick 900ms ease-out; border-radius: 4px; }
+.tick {
+  background-image: linear-gradient(rgb(var(--marker)), rgb(var(--marker)));
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  background-size: 0% 2px;
+  animation: tick 1100ms ease-out;
+}
 
 /* The one orchestrated moment: an order "stamps" into the journal */
 @keyframes stamp {

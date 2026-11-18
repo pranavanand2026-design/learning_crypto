@@ -7,6 +7,8 @@ import { money, pct } from "../lib/format";
 import { Wordmark } from "../components/Brand";
 import CoinMark from "../components/CoinMark";
 import GoogleButton from "../components/GoogleButton";
+import PasswordChecklist from "../components/PasswordChecklist";
+import { passwordReady, serverIssueFrom } from "../lib/password";
 import LivePrice from "../components/LivePrice";
 
 const ReCAPTCHA = lazy(() => import("react-google-recaptcha"));
@@ -93,20 +95,6 @@ function Field({ label, type = "text", ...props }) {
   );
 }
 
-function Strength({ password }) {
-  const score = [password.length >= 10, /\d/.test(password) && /[a-z]/i.test(password), /[^a-z0-9]/i.test(password), password.length >= 14].filter(Boolean).length;
-  const label = ["", "Weak", "Okay", "Good", "Strong"][score];
-  return (
-    <div className="mt-2" aria-live="polite">
-      <div className="flex gap-1">
-        {[0, 1, 2, 3].map((i) => (
-          <span key={i} className={`h-1 flex-1 rounded-full transition-colors duration-300 ${i < score ? (score < 2 ? "bg-loss" : score < 3 ? "bg-warm" : "bg-accent") : "bg-rule"}`} />
-        ))}
-      </div>
-      {password && <span className="mt-1 block text-xs text-graphite">{label}</span>}
-    </div>
-  );
-}
 
 export function Login() {
   const { user, login, config } = useAuth();
@@ -171,10 +159,6 @@ export function Login() {
   );
 }
 
-const RULES = [
-  { test: (p) => p.length >= 10, label: "10 or more characters" },
-  { test: (p) => /\d/.test(p) && /[a-z]/i.test(p), label: "Letters and numbers" },
-];
 
 function Or() {
   return (
@@ -212,9 +196,10 @@ export function Signup() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [fails, setFails] = useState(0);
+  const [pwIssue, setPwIssue] = useState(null);
   const onGoogle = useGoogle(setError, setFails);
   if (user) return <Navigate to="/" replace />;
-  const strong = RULES.every((r) => r.test(form.password));
+  const strong = passwordReady(form.password);
 
   async function submit(e) {
     e.preventDefault();
@@ -227,7 +212,9 @@ export function Signup() {
       if (err.status === 400 && err.message.includes("captcha")) {
         navigate("/login", { state: { notice: "Account created. Log in to continue." } });
       } else {
-        setError(err.message);
+        const issue = serverIssueFrom(err.message);
+        setPwIssue(issue);
+        setError(issue ? null : err.message);
         setFails((n) => n + 1);
       }
     } finally {
@@ -247,14 +234,24 @@ export function Signup() {
         <Field label="Name" autoComplete="name" required value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
         <Field label="Email" type="email" autoComplete="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <div>
-          <Field label="Password" type="password" autoComplete="new-password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-          <Strength password={form.password} />
+          <Field
+            label="Password"
+            type="password"
+            autoComplete="new-password"
+            required
+            value={form.password}
+            onChange={(e) => {
+              setForm({ ...form, password: e.target.value });
+              setPwIssue(null);
+            }}
+          />
+          <PasswordChecklist password={form.password} serverIssue={pwIssue} />
         </div>
         <Captcha siteKey={config.recaptcha_site_key} onChange={setCaptcha} />
         {error && <p className="text-sm text-loss" role="alert">{error}</p>}
         <button className="btn-accent btn-lift w-full !py-3.5" disabled={busy || !strong || (config.recaptcha_site_key && !captcha)}>
           {busy ? <Spinner /> : null}
-          {busy ? "Creating account" : strong ? "Create account" : "10+ characters, letters and numbers"}
+          {busy ? "Creating account" : strong ? "Create account" : "Finish your password"}
         </button>
       </form>
       <p className="mt-6 text-sm text-graphite">

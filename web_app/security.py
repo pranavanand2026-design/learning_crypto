@@ -17,15 +17,29 @@ logger = logging.getLogger(__name__)
 # --------------------------------------------------------------------------
 # Password validators (registered in AUTH_PASSWORD_VALIDATORS)
 # --------------------------------------------------------------------------
-class LetterAndNumberValidator:
-    """Require at least one letter and one number."""
+# Each rule mirrors a line in the sign-up checklist.
+CHARACTER_RULES = [
+    (r"[A-Z]", "Add an uppercase letter."),
+    (r"[a-z]", "Add a lowercase letter."),
+    (r"\d", "Add a number."),
+    (r"[^A-Za-z0-9]", "Add a symbol, like ! or #."),
+]
+
+
+class CharacterMixValidator:
+    """Require uppercase, lowercase, a number and a symbol."""
 
     def validate(self, password, user=None):
-        if not (re.search(r"[A-Za-z]", password) and re.search(r"\d", password)):
-            raise ValidationError("Use both letters and numbers.", code="password_letters_numbers")
+        missing = [message for pattern, message in CHARACTER_RULES if not re.search(pattern, password)]
+        if missing:
+            raise ValidationError(missing, code="password_character_mix")
 
     def get_help_text(self):
-        return "Your password must contain letters and numbers."
+        return "Your password must contain uppercase and lowercase letters, a number and a symbol."
+
+
+# Backwards-compatible name
+LetterAndNumberValidator = CharacterMixValidator
 
 
 class BreachedPasswordValidator:

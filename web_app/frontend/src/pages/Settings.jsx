@@ -10,6 +10,8 @@ import { useAccount } from "../state/account";
 import { Tiles } from "../components/Pick";
 import RuleChooser from "../components/RuleChooser";
 import { PageHeader } from "../components/Page";
+import PasswordChecklist from "../components/PasswordChecklist";
+import { passwordReady, serverIssueFrom } from "../lib/password";
 import Avatar, { PRESETS, PresetArt, imageToAvatar } from "../components/Avatar";
 
 const SECTIONS = [
@@ -223,6 +225,7 @@ export default function Settings() {
   const [nameState, setNameState] = useState(null);
   const [pw, setPw] = useState({ current_password: "", new_password: "" });
   const [pwState, setPwState] = useState(null);
+  const [pwIssue, setPwIssue] = useState(null);
   const [confirmReset, setConfirmReset] = useState(false);
 
   async function saveProfile(patch) {
@@ -299,7 +302,7 @@ export default function Settings() {
           {account && <Rules account={account} onSaved={reload} />}
         </Block>
 
-        <Block id="security" title="Password" hint={user.has_password ? "At least 10 characters with letters and numbers. We also block passwords seen in data breaches." : undefined}>
+        <Block id="security" title="Password" hint={user.has_password ? "We also block passwords seen in data breaches." : undefined}>
           {!user.has_password ? (
             <p className="text-graphite">You sign in with Google, so there's no password to manage here.</p>
           ) : (
@@ -310,9 +313,12 @@ export default function Settings() {
               try {
                 await api("/accounts/change-password/", { method: "POST", body: pw });
                 setPw({ current_password: "", new_password: "" });
+                setPwIssue(null);
                 setPwState("Saved");
               } catch (err) {
-                setPwState(err.message);
+                const issue = serverIssueFrom(err.message);
+                setPwIssue(issue);
+                setPwState(issue ? null : err.message);
               }
             }}
           >
@@ -322,10 +328,11 @@ export default function Settings() {
             </label>
             <label className="block">
               <span className="text-sm text-graphite">New password</span>
-              <input type="password" autoComplete="new-password" className="field mt-1.5" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} required />
+              <input type="password" autoComplete="new-password" className="field mt-1.5" value={pw.new_password} onChange={(e) => { setPw({ ...pw, new_password: e.target.value }); setPwIssue(null); }} required />
             </label>
+            {pw.new_password && <PasswordChecklist password={pw.new_password} serverIssue={pwIssue} />}
             <div className="flex items-center gap-3">
-              <button className="btn-ink">Change password</button>
+              <button className="btn-ink" disabled={!passwordReady(pw.new_password) || !pw.current_password}>Change password</button>
               <Saved state={pwState} />
             </div>
           </form>

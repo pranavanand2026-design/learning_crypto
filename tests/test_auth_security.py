@@ -21,7 +21,7 @@ def make_user(email="a@example.com", password="Sturdy-pass-2024"):
 
 # ------------------------------------------------------------ passwords
 @pytest.mark.django_db
-@pytest.mark.parametrize("pw", ["short1", "onlyletterslong", "1234567890123", "password123"])
+@pytest.mark.parametrize("pw", ["short1", "onlyletterslong", "1234567890123", "password123", "nouppercase-123", "NOLOWERCASE-123", "NoSymbolsHere123"])
 def test_weak_passwords_rejected(pw):
     with pytest.raises(ValidationError):
         validate_password(pw)
@@ -164,3 +164,11 @@ def test_ip_locks_after_many_failures_across_accounts(client, settings):
     for i in range(security.MAX_IP_FAILURES):
         client.post(url, {"email": f"x{i}@example.com", "password": "nope-nope-1"})
     assert client.post(url, {"email": "new@example.com", "password": "whatever-1"}).status_code == 429
+
+
+@pytest.mark.django_db
+def test_character_mix_lists_every_missing_rule():
+    with pytest.raises(ValidationError) as exc:
+        validate_password("abcdefghijk")
+    text = " ".join(exc.value.messages)
+    assert "uppercase" in text and "number" in text and "symbol" in text

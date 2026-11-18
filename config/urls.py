@@ -4,6 +4,7 @@ from web_app import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/", include("trading.urls")),
     path("api/", include("web_app.urls")),
 
     # legacy non-API routes if still used

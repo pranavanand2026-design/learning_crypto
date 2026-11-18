@@ -1,0 +1,3 @@
+-r requirements.txt
+# Postgres driver (production / Cloud SQL). Not needed for local SQLite.
+psycopg2-binary==2.9.10

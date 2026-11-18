@@ -178,7 +178,7 @@ export default function Journal() {
         <header className="pl-[6rem] sm:pl-[7.5rem]">
           <h1 className="font-serif text-3xl italic leading-[4rem] tracking-tight">My trading journal</h1>
           <p className="text-sm leading-8 text-graphite">
-            {all.length ? `${all.length} entr${all.length === 1 ? "y" : "ies"}. Nothing here can be erased; add what you learn.` : ""}
+            {all.length ? `${all.length} entr${all.length === 1 ? "y" : "ies"}` : ""}
           </p>
         </header>
 

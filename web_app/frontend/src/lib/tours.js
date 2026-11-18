@@ -15,7 +15,7 @@ export const TOURS = {
     { target: "today", title: "Your rules at work", body: "Trades left today, and when buying pauses. Change your rules in settings." },
   ],
   journal: [
-    { target: "page", title: "Every decision, written down", body: "Trades land here with the reason you gave. Nothing can be erased, so you can see how your thinking held up." },
+    { target: "page", title: "Every decision, written down", body: "Trades land here with the reason you gave, so you can see how your thinking held up." },
     { target: "note", title: "Add what you learn", body: "Come back after a trade plays out and write a line to your future self." },
   ],
   progress: [

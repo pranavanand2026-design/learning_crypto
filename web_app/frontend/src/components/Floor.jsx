@@ -55,9 +55,28 @@ export default function Floor({ rows, ticks }) {
   return (
     <section
       aria-label="Market now"
+      data-tour="floor"
       className="relative left-1/2 -mt-6 mb-10 w-screen -translate-x-1/2 overflow-hidden bg-floor text-on-floor md:-mt-10"
     >
-      <div className="mx-auto grid max-w-page gap-10 px-4 pb-10 pt-10 md:px-6 lg:grid-cols-[1.15fr_1fr] lg:pt-14">
+      {!user && (
+        <div className="mx-auto max-w-page px-4 pb-12 pt-14 md:px-6 lg:pb-16 lg:pt-20">
+          <h1 className="max-w-4xl text-[2.6rem] font-light leading-[1.02] tracking-tight md:text-[4.5rem]">
+            Make your crypto mistakes here, not with your rent.
+          </h1>
+          <p className="mt-6 max-w-xl text-md text-on-floor/70">
+            Trade the live market with {money(config.starting_cash, { digits: 0, raw: true })} of practice money, and learn what hype does to your decisions before it costs you anything.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link to="/signup" className="btn-marker !px-6 !py-3">
+              Start practising free
+            </Link>
+            <Link to="/login" className="btn border border-on-floor/25 !px-6 !py-3 text-on-floor hover:border-on-floor/60">
+              Log in
+            </Link>
+          </div>
+        </div>
+      )}
+      <div className={`mx-auto grid max-w-page gap-10 px-4 pb-10 md:px-6 lg:grid-cols-[1.15fr_1fr] ${user ? "pt-10 lg:pt-14" : "border-t border-on-floor/10 pt-10"}`}>
         <div className="flex min-w-0 flex-col">
           <Link to={`/coin/${coin.id}`} className="flex items-center gap-3 text-on-floor/70 hover:text-on-floor">
             <CoinMark src={coin.image} symbol={coin.symbol} size={28} />
@@ -65,7 +84,11 @@ export default function Floor({ rows, ticks }) {
             <LivePrice value={price(coin)} className="text-on-floor" />
             <HeatMeter heat={coin.heat} empty="bg-on-floor/15" />
           </Link>
-          <h1 className="mt-5 max-w-xl text-3xl font-light leading-[1.05] tracking-tight md:text-4xl">{line}</h1>
+          {user ? (
+            <h1 className="mt-5 max-w-xl text-3xl font-light leading-[1.05] tracking-tight md:text-4xl">{line}</h1>
+          ) : (
+            <h2 className="mt-5 max-w-xl text-2xl font-light leading-[1.1] tracking-tight md:text-3xl">{line}</h2>
+          )}
           {why.length > 0 && (
             <ul className="mt-4 space-y-1 text-on-floor/65">
               {why.map((w) => (
@@ -78,11 +101,6 @@ export default function Floor({ rows, ticks }) {
             <Link to={`/coin/${coin.id}`} className="btn-marker">
               Look closer
             </Link>
-            {!user && (
-              <Link to="/signup" className="btn border border-on-floor/25 text-on-floor hover:border-on-floor/60">
-                Practice with {money(config.starting_cash, { digits: 0 })}
-              </Link>
-            )}
           </div>
         </div>
 

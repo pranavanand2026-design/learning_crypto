@@ -25,6 +25,8 @@ function currencyFormat(digits, opts = {}) {
       minimumFractionDigits: opts.notation ? undefined : digits,
       maximumFractionDigits: digits,
       notation: opts.notation,
+      // "$" rather than "US$" for dollars, whatever the viewer's region.
+      currencyDisplay: (opts.currency || display.currency) === "USD" ? "narrowSymbol" : "symbol",
     });
   }
   return cache[key];
@@ -38,7 +40,12 @@ export function money(usd, opts = {}) {
   let out;
   if (opts.digits === undefined && abs > 0 && abs < 1) {
     // Small prices: keep four significant figures (0.004802, 0.9785).
-    out = new Intl.NumberFormat(display.locale, { style: "currency", currency: display.currency, maximumSignificantDigits: 4 }).format(value);
+    out = new Intl.NumberFormat(display.locale, {
+      style: "currency",
+      currency: display.currency,
+      currencyDisplay: display.currency === "USD" ? "narrowSymbol" : "symbol",
+      maximumSignificantDigits: 4,
+    }).format(value);
   } else {
     let digits = opts.digits ?? 2;
     if (opts.digits === undefined && (["JPY", "KRW", "IDR"].includes(display.currency) || abs >= 100000)) digits = 0;

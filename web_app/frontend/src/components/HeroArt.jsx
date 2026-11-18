@@ -1,8 +1,8 @@
 import { useState } from "react";
 
 // Landing hero background: coin stacks that grow into trees. Money, planted
-// patiently, compounding. Original artwork in the brand palette. If a licensed
-// photo is placed at public/hero.jpg it is layered underneath, faded and tinted.
+// patiently, compounding. Uses the photo at public/hero.webp; if it's missing,
+// falls back to the same idea drawn in SVG in the brand palette.
 
 const GROUND = 418;
 const COIN_H = 8;
@@ -68,16 +68,23 @@ function Stack({ x, coins, canopy, i }) {
 
 export default function HeroArt() {
   const [photo, setPhoto] = useState(true);
-  return (
-    <div className="pointer-events-none absolute inset-0" aria-hidden>
-      {photo && (
+  if (photo) {
+    return (
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
         <img
-          src="/hero.jpg"
+          src="/hero.webp"
           alt=""
           onError={() => setPhoto(false)}
-          className="absolute inset-0 h-full w-full object-cover opacity-25 mix-blend-luminosity"
+          className="hero-photo absolute inset-0 h-full w-full object-cover object-[78%_center] opacity-35 md:opacity-100"
         />
-      )}
+        {/* keep the text side calm and blend the photo into the band */}
+        <div className="absolute inset-0 bg-gradient-to-r from-floor via-floor/60 to-transparent md:via-floor/10" />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-floor/70 to-transparent" />
+      </div>
+    );
+  }
+  return (
+    <div className="pointer-events-none absolute inset-0" aria-hidden>
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1200 500" preserveAspectRatio="xMaxYMax slice">
         <defs>
           <linearGradient id="coin-side" x1="0" x2="1">

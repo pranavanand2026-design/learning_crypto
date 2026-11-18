@@ -179,4 +179,6 @@
 @keyframes grove-grow { from { transform: scale(0.2); opacity: 0; } to { transform: none; opacity: 1; } }
 .grove-rise { transform-box: fill-box; transform-origin: 50% 100%; animation: grove-rise 700ms cubic-bezier(.2,.8,.2,1) both; }
 .grove-grow { transform-box: fill-box; transform-origin: 50% 100%; animation: grove-grow 900ms cubic-bezier(.2,.9,.25,1.15) both; }
-@media (prefers-reduced-motion: reduce) { .grove-rise, .grove-grow { animation: none; } }
+@keyframes hero-photo { from { transform: scale(1.06); opacity: 0; } to { transform: none; } }
+.hero-photo { animation: hero-photo 2.4s cubic-bezier(.2,.7,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .grove-rise, .grove-grow, .hero-photo { animation: none; } }

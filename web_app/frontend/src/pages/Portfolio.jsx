@@ -1,249 +1,226 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../lib/api";
+import { useApi } from "../lib/hooks";
 import { useLiveTicks } from "../lib/live";
-import { money, pct, qty, tone, until } from "../lib/format";
+import { day, greeting, money, pct, qty, tone, until } from "../lib/format";
+import { useAuth } from "../state/auth";
 import { useAccount } from "../state/account";
 import CoinMark from "../components/CoinMark";
 import LivePrice from "../components/LivePrice";
-import { Empty, Loading, Problem } from "../components/States";
+import { Loading, Problem } from "../components/States";
 
-function Versus({ equity, benchmark, start, startedAt }) {
-  if (!benchmark) return null;
-  const mine = (equity / start - 1) * 100;
-  const btc = (benchmark / start - 1) * 100;
-  const max = Math.max(Math.abs(mine), Math.abs(btc), 0.5);
-  const ahead = mine >= btc;
+// Ink shades for the allocation bar, largest holding darkest.
+const SHADES = ["bg-ink", "bg-ink/75", "bg-ink/55", "bg-ink/40", "bg-ink/30", "bg-ink/20"];
+
+function Allocation({ cash, positions, equity }) {
+  const parts = [
+    ...positions.map((p, i) => ({ key: p.coin_id, label: p.symbol, value: p.value, cls: SHADES[Math.min(i, SHADES.length - 1)] })),
+    { key: "cash", label: "Cash", value: cash, cls: "bg-marker" },
+  ];
   return (
-    <section className="space-y-3">
-      <p className="text-md">
-        {ahead ? "You're ahead of" : "You're behind"} simply holding Bitcoin since{" "}
-        {new Date(startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.
-      </p>
-      {[
-        { label: "You", value: mine, total: equity },
-        { label: "Holding Bitcoin", value: btc, total: benchmark },
-      ].map((r) => (
-        <div key={r.label} className="grid grid-cols-[7rem_1fr_5rem_6rem] items-center gap-3 text-sm sm:grid-cols-[9rem_1fr_5rem_6rem]">
-          <span className="text-graphite">{r.label}</span>
-          <span className="relative block h-2">
-            <span className="absolute inset-y-[-4px] left-1/2 w-px bg-rule" />
-            <span
-              className={`absolute inset-y-0 rounded-full ${r.value >= 0 ? "left-1/2 bg-gain" : "right-1/2 bg-loss"}`}
-              style={{ width: `${Math.max((Math.abs(r.value) / max) * 50, 0.6)}%` }}
-            />
-          </span>
-          <span className={`num text-right ${tone(r.value)}`}>{pct(r.value)}</span>
-          <span className="num text-right text-graphite">{money(r.total, { digits: 0 })}</span>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-const RULES = [
-  { key: "max_trades_per_day", label: "Trades per day", suffix: "", min: 1, max: 100 },
-  { key: "max_daily_loss_pct", label: "Daily loss limit", suffix: "% of starting cash", min: 1, max: 100 },
-  { key: "cooldown_minutes", label: "Pause after a losing exit", suffix: "minutes", min: 0, max: 240 },
-  { key: "max_position_pct", label: "Largest single position", suffix: "% of portfolio", min: 5, max: 100 },
-];
-
-function Rules({ account, onSaved }) {
-  const [values, setValues] = useState(account.rules);
-  const [state, setState] = useState(null);
-  useEffect(() => setValues(account.rules), [account.rules]);
-  const dirty = RULES.some((r) => String(values[r.key] ?? "") !== String(account.rules[r.key] ?? ""));
-
-  async function save(e) {
-    e.preventDefault();
-    setState("saving");
-    try {
-      await api("/account/rules/", { method: "PUT", body: values });
-      setState("Saved");
-      onSaved();
-    } catch (err) {
-      setState(err.message);
-    }
-  }
-
-  return (
-    <form onSubmit={save}>
-      <h2 className="text-lg font-medium tracking-tight">Your rules</h2>
-      <p className="mt-1 text-sm text-graphite">New buys pause when you hit one. Selling is always open.</p>
-      <div className="ruled mt-4">
-        {RULES.map((r) => (
-          <label key={r.key} className="flex items-center justify-between gap-4 py-3 text-sm">
-            <span>{r.label}</span>
-            <span className="flex items-center gap-2 text-graphite">
-              <input
-                type="number"
-                min={r.min}
-                max={r.max}
-                value={values[r.key] ?? ""}
-                placeholder="Off"
-                onChange={(e) => setValues({ ...values, [r.key]: e.target.value === "" ? null : Number(e.target.value) })}
-                className="field num w-20 !py-1.5 text-right"
-              />
-              <span className="hidden w-32 sm:inline">{r.suffix}</span>
-            </span>
-          </label>
+    <section aria-label="Where your money is">
+      <div className="flex h-3 overflow-hidden rounded-full bg-rule">
+        {parts.map((p) => (
+          <span key={p.key} className={`${p.cls} h-full`} style={{ width: `${(p.value / equity) * 100}%` }} title={`${p.label} ${money(p.value)}`} />
         ))}
       </div>
-      <div className="mt-4 flex items-center gap-3">
-        <button className="btn-ink" disabled={!dirty || state === "saving"}>
-          Save rules
-        </button>
-        {state && state !== "saving" && <span className="text-sm text-graphite">{state}</span>}
-      </div>
-    </form>
+      <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+        {parts.map((p) => (
+          <li key={p.key} className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${p.cls}`} />
+            <span>{p.label}</span>
+            <span className="num text-graphite">{pct((p.value / equity) * 100, { sign: false, digits: 0 })}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
-function Restart({ onDone }) {
-  const [confirm, setConfirm] = useState(false);
+function Today({ account }) {
+  const { today, rules } = account;
+  const cap = rules.max_trades_per_day;
   return (
-    <section>
-      <h2 className="text-lg font-medium tracking-tight">Start over</h2>
-      <p className="mt-1 text-sm text-graphite">Close every position and reset your cash. Your journal stays.</p>
-      {confirm ? (
-        <div className="mt-4 flex gap-3">
-          <button
-            className="btn bg-loss text-white"
-            onClick={async () => {
-              await api("/account/restart/", { method: "POST" });
-              setConfirm(false);
-              onDone();
-            }}
-          >
-            Reset my portfolio
-          </button>
-          <button className="btn-quiet" onClick={() => setConfirm(false)}>
-            Keep it
-          </button>
-        </div>
-      ) : (
-        <button className="btn-quiet mt-4" onClick={() => setConfirm(true)}>
-          Start over
-        </button>
-      )}
+    <section className="flex flex-col gap-3 rounded-sheet bg-sheet px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-4">
+        {cap ? (
+          <span className="flex gap-1" aria-hidden>
+            {Array.from({ length: cap }, (_, i) => (
+              <span key={i} className={`h-2.5 w-2.5 rounded-full ${i < today.trades ? "bg-ink" : "border border-ink/30"}`} />
+            ))}
+          </span>
+        ) : null}
+        <span>
+          {today.blocked ? (
+            <>
+              {today.blocked.detail} <span className="text-graphite">Buying opens in {until(today.blocked.retry_at)}.</span>
+            </>
+          ) : cap ? (
+            `${Math.max(cap - today.trades, 0)} of ${cap} trades left today`
+          ) : (
+            `${today.trades} trade${today.trades === 1 ? "" : "s"} today`
+          )}
+        </span>
+      </div>
+      <Link to="/settings#rules" className="text-sm text-graphite hover:text-ink">
+        Your rules
+      </Link>
     </section>
   );
+}
+
+function HowItWorks() {
+  const { data } = useApi("/market/");
+  const coins = (data?.results || []).filter((r) => r.live_product).slice(0, 4);
+  const steps = [
+    ["Pick a coin", "Buy with practice money at live prices, with real fees."],
+    ["Say why", "A sentence on your reason and how sure you are."],
+    ["See how you did", "When your time's up we check the call, and Progress shows how your judgment holds up."],
+  ];
+  return (
+    <section className="rounded-sheet bg-sheet px-6 py-8 md:px-10">
+      <h2 className="text-xl font-light tracking-tight">How this works</h2>
+      <ol className="mt-6 grid gap-6 md:grid-cols-3">
+        {steps.map(([title, body], i) => (
+          <li key={title} className="flex gap-4">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-marker text-sm font-semibold text-[rgb(20_36_48)]">{i + 1}</span>
+            <span>
+              <span className="block font-medium">{title}</span>
+              <span className="mt-1 block text-sm text-graphite">{body}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-8 flex flex-wrap items-center gap-2">
+        <span className="mr-2 text-sm text-graphite">Start with</span>
+        {coins.map((c) => (
+          <Link key={c.id} to={`/coin/${c.id}?trade=buy`} className="chip gap-2 !px-4 !py-2 !text-sm">
+            <CoinMark src={c.image} symbol={c.symbol} size={18} />
+            {c.name}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NextUp() {
+  const { data } = useApi("/progress/");
+  if (!data || !data.trades) return null;
+  const cal = data.calibration;
+  return (
+    <Link to={cal.pending ? "/journal" : "/progress"} className="flex items-center justify-between gap-4 rounded-sheet border border-rule px-5 py-4 hover:border-ink/40">
+      <span>
+        <span className="block text-xs text-graphite">Next up</span>
+        <span className="mt-0.5 block">
+          {cal.pending
+            ? `${cal.pending} call${cal.pending > 1 ? "s" : ""} waiting. The next is checked ${day(cal.next_resolves_at)}.`
+            : cal.resolved
+              ? `${cal.resolved} call${cal.resolved > 1 ? "s" : ""} checked. See how your confidence held up.`
+              : "Buy with a reason and a time frame to start tracking your calls."}
+        </span>
+      </span>
+      <span className="text-graphite" aria-hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 6l6 6-6 6" /></svg>
+      </span>
+    </Link>
+  );
+}
+
+function PlanState({ p }) {
+  if (p.stop_price && p.price < p.stop_price) return <span className="text-loss">Below your stop</span>;
+  if (p.target_price && p.price > p.target_price) return <span className="text-gain">Past your target</span>;
+  if (p.stop_price || p.target_price) return <span className="text-graphite">On plan</span>;
+  return <span className="text-graphite">No exit planned</span>;
 }
 
 export default function Portfolio() {
+  const { user } = useAuth();
   const { data: account, error, loading, reload } = useAccount();
   const ticks = useLiveTicks(account?.positions.map((p) => p.live_product) || []);
   if (loading && !account) return <Loading />;
   if (error && !account) return <Problem error={error} onRetry={reload} />;
   if (!account) return null;
 
-  const positions = account.positions.map((p) => {
-    const price = ticks[p.live_product]?.price ?? p.price;
-    const value = price ? p.quantity * price : p.cost_basis;
-    return { ...p, price, value, pnl: value - p.cost_basis, pnl_pct: (value / p.cost_basis - 1) * 100 };
-  });
+  const positions = account.positions
+    .map((p) => {
+      const price = ticks[p.live_product]?.price ?? p.price;
+      const value = price ? p.quantity * price : p.cost_basis;
+      return { ...p, price, value, pnl: value - p.cost_basis, pnl_pct: (value / p.cost_basis - 1) * 100 };
+    })
+    .sort((a, b) => b.value - a.value);
   const equity = account.cash + positions.reduce((s, p) => s + p.value, 0);
   const ret = (equity / account.starting_cash - 1) * 100;
-  const { today, rules } = account;
+  const btcRet = account.benchmark_equity ? (account.benchmark_equity / account.starting_cash - 1) * 100 : null;
+  const first = (user?.display_name || "").split(" ")[0];
 
   return (
-    <div className="space-y-14">
-      <section className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="sr-only">Portfolio</h1>
-          <div className="text-sm text-graphite">Portfolio value</div>
-          <div className="mt-1 flex flex-wrap items-baseline gap-x-4">
-            <span className="num text-4xl font-light tracking-tight">{money(equity, { digits: 2 })}</span>
-            <span className={`num text-md ${tone(ret)}`}>{pct(ret)} since you started</span>
-          </div>
-          <div className="num mt-3 flex gap-6 text-sm text-graphite">
-            <span>
-              Cash <span className="text-ink">{money(account.cash)}</span>
-            </span>
-            <span>
-              Invested <span className="text-ink">{money(equity - account.cash)}</span>
-            </span>
-          </div>
+    <div className="space-y-12">
+      <section>
+        <h1 className="text-graphite">
+          {greeting()}
+          {first ? `, ${first}` : ""}.
+        </h1>
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <span className="num text-4xl font-light tracking-tight">{money(equity)}</span>
+          <span className={`num text-md ${tone(ret)}`}>{pct(ret)}</span>
         </div>
-        <div className="text-sm md:text-right">
-          <div className="num">
-            {today.trades}
-            {rules.max_trades_per_day ? ` of ${rules.max_trades_per_day}` : ""} trades today
-          </div>
-          {today.blocked && (
-            <div className="mt-1 text-graphite">
-              {today.blocked.detail} Buying opens in {until(today.blocked.retry_at)}.
-            </div>
-          )}
-        </div>
+        <p className="mt-1 text-sm text-graphite">Practice money. Trade it like it's yours.</p>
+        {btcRet !== null && (
+          <p className="mt-2 text-graphite">
+            Holding Bitcoin over the same time: <span className={`num ${tone(btcRet)}`}>{pct(btcRet)}</span>.{" "}
+            {Math.abs(ret - btcRet) < 0.05 ? "You're level." : ret > btcRet ? "You're ahead." : "You're behind."}
+          </p>
+        )}
       </section>
 
-      <Versus equity={equity} benchmark={account.benchmark_equity} start={account.starting_cash} startedAt={account.started_at} />
+      {account.positions.length === 0 && !account.today.trades ? <HowItWorks /> : <NextUp />}
 
-      <section>
-        <h2 className="text-lg font-medium tracking-tight">Holdings</h2>
-        {positions.length === 0 ? (
-          <Empty title="Nothing held yet.">
-            <Link to="/" className="link">
-              Pick a coin from the market
-            </Link>{" "}
-            to place your first trade.
-          </Empty>
-        ) : (
-          <table className="mt-3 w-full text-sm">
-            <thead className="text-left text-xs text-graphite">
-              <tr className="border-b border-rule">
-                <th className="py-3 font-normal">Coin</th>
-                <th className="hidden py-3 text-right font-normal sm:table-cell">Price</th>
-                <th className="py-3 text-right font-normal">Value</th>
-                <th className="py-3 text-right font-normal">Return</th>
-                <th className="hidden py-3 pl-6 font-normal md:table-cell">Plan</th>
-              </tr>
-            </thead>
-            <tbody>
+      <Today account={account} />
+
+      {positions.length === 0 ? (
+        <p className="text-graphite">
+          All cash right now.{" "}
+          <Link to="/" className="link text-ink">
+            Find a coin
+          </Link>
+        </p>
+      ) : (
+        <>
+          <Allocation cash={account.cash} positions={positions} equity={equity} />
+          <section>
+            <h2 className="text-lg font-medium tracking-tight">Holdings</h2>
+            <ul className="ruled mt-3">
               {positions.map((p) => (
-                <tr key={p.coin_id} className="border-b border-rule/70">
-                  <td className="py-3">
-                    <Link to={`/coin/${p.coin_id}`} className="flex items-center gap-3 hover:underline">
-                      <CoinMark src={p.image} symbol={p.symbol} />
+                <li key={p.coin_id}>
+                  <Link to={`/coin/${p.coin_id}`} className="grid grid-cols-[1fr_auto] items-center gap-x-6 gap-y-1 py-4 hover:bg-sheet sm:grid-cols-[1fr_8rem_8rem_9rem]">
+                    <span className="flex items-center gap-3">
+                      <CoinMark src={p.image} symbol={p.symbol} size={32} />
                       <span>
                         <span className="block font-medium">{p.name}</span>
                         <span className="num block text-xs text-graphite">
                           {qty(p.quantity)} {p.symbol}
                         </span>
                       </span>
-                    </Link>
-                  </td>
-                  <td className="hidden py-3 text-right sm:table-cell">
-                    <LivePrice value={p.price} />
-                  </td>
-                  <td className="num py-3 text-right">{money(p.value, { digits: 2 })}</td>
-                  <td className={`num py-3 text-right ${tone(p.pnl)}`}>
-                    {money(p.pnl, { sign: true, digits: 2 })}
-                    <span className="block text-xs">{pct(p.pnl_pct)}</span>
-                  </td>
-                  <td className="hidden py-3 pl-6 text-xs md:table-cell">
-                    {p.stop_price && p.price < p.stop_price ? (
-                      <span className="text-loss">Below your stop</span>
-                    ) : p.target_price && p.price > p.target_price ? (
-                      <span className="text-gain">Past your target</span>
-                    ) : p.stop_price || p.target_price ? (
-                      <span className="text-graphite">On plan</span>
-                    ) : (
-                      <span className="text-graphite">No exit set</span>
-                    )}
-                  </td>
-                </tr>
+                    </span>
+                    <span className="hidden text-right sm:block">
+                      <LivePrice value={p.price} className="text-sm" />
+                    </span>
+                    <span className="text-right">
+                      <span className="num block">{money(p.value, { digits: 2 })}</span>
+                      <span className={`num block text-xs ${tone(p.pnl)}`}>
+                        {money(p.pnl, { sign: true, digits: 2 })} ({pct(p.pnl_pct)})
+                      </span>
+                    </span>
+                    <span className="hidden text-right text-sm sm:block">
+                      <PlanState p={p} />
+                    </span>
+                  </Link>
+                </li>
               ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <div className="grid gap-14 lg:grid-cols-2">
-        <Rules account={account} onSaved={reload} />
-        <Restart onDone={reload} />
-      </div>
+            </ul>
+          </section>
+        </>
+      )}
     </div>
   );
 }

@@ -136,3 +136,18 @@
 .tape { animation: tape 90s linear infinite; width: max-content; }
 .tape:hover { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) { .tape { animation: none; } }
+
+/* Slider thumb: a highlighter dot with an ink ring */
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px; height: 22px; border-radius: 999px;
+  background: rgb(var(--marker)); border: 3px solid rgb(var(--ink));
+  box-shadow: 0 2px 6px rgb(var(--ink) / 0.2);
+}
+.slider::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 999px;
+  background: rgb(var(--marker)); border: 3px solid rgb(var(--ink));
+}
+.slider::-webkit-slider-runnable-track, .slider::-moz-range-track { background: transparent; }
+.slider:focus-visible { outline: none; }
+.slider:focus-visible::-webkit-slider-thumb { outline: 2px solid rgb(var(--marker)); outline-offset: 3px; }

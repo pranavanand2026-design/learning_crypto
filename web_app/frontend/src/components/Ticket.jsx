@@ -6,15 +6,9 @@ import { useNow } from "../lib/hooks";
 import { useAccount } from "../state/account";
 import CoinMark from "./CoinMark";
 import { Pills, Steps } from "./Pick";
+import Slider from "./Slider";
+import { CONVICTION_STOPS, CONVICTION_WORDS, HORIZON_STOPS, STOP_STOPS, TARGET_STOPS, horizonLabel, horizonPhrase } from "../lib/plan";
 
-const HORIZONS = [
-  { value: 1, label: "Tomorrow" },
-  { value: 7, label: "In a week" },
-  { value: 30, label: "In a month" },
-];
-const CONVICTION = [50, 60, 70, 80, 90].map((c) => ({ value: c, label: `${c}%` }));
-const STOPS = [5, 10, 20].map((s) => ({ value: s, label: `−${s}%` }));
-const TARGETS = [10, 25, 50].map((t) => ({ value: t, label: `+${t}%` }));
 const MOODS = ["calm", "curious", "excited", "anxious", "frustrated"].map((m) => ({ value: m, label: m[0].toUpperCase() + m.slice(1) }));
 const HOT_PAUSE_MS = 20000;
 
@@ -48,8 +42,8 @@ export default function Ticket({ coin, initialSide = "buy", onClose, onFilled })
   const [sellShare, setSellShare] = useState(null);
   const [thesis, setThesis] = useState("");
   const [horizon, setHorizon] = useState(7);
-  const [conviction, setConviction] = useState(null);
-  const [stop, setStop] = useState(null);
+  const [conviction, setConviction] = useState(70);
+  const [stop, setStop] = useState(10);
   const [target, setTarget] = useState(null);
   const [mood, setMood] = useState(null);
   const [quote, setQuote] = useState(null);
@@ -110,12 +104,12 @@ export default function Ticket({ coin, initialSide = "buy", onClose, onFilled })
 
   const stepReady = [
     Boolean(order && quote && !quoteError),
-    thesis.trim().length >= 8 && Boolean(conviction),
+    thesis.trim().length >= 8,
     true,
     true,
   ];
   const nextLabel = buying
-    ? [!order ? "Enter an amount" : "Next", thesis.trim().length < 8 ? "Write a sentence first" : !conviction ? "Choose how sure you are" : "Next", "Review", null][step]
+    ? [!order ? "Enter an amount" : "Next", thesis.trim().length < 8 ? "Write a sentence first" : "Next", "Review", null][step]
     : [!order ? "Choose how much" : "Review", null][step];
 
   async function submit() {
@@ -146,7 +140,7 @@ export default function Ticket({ coin, initialSide = "buy", onClose, onFilled })
   }
 
   const cash = toDisplay(account?.cash ?? 0);
-  const horizonLabel = HORIZONS.find((h) => h.value === horizon)?.label.toLowerCase();
+  const futureDay = (d) => day(new Date(Date.now() + d * 86400000).toISOString(), { weekday: "short", day: "numeric", month: "short" });
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-end md:items-stretch" role="dialog" aria-modal="true" aria-label={`Trade ${coin.name}`}>
@@ -276,28 +270,51 @@ export default function Ticket({ coin, initialSide = "buy", onClose, onFilled })
                       className="w-full resize-none rounded-field border border-rule bg-paper/40 px-3 py-2.5 font-serif text-md leading-snug outline-none focus:border-ink"
                     />
                   </Section>
-                  <Section title={`When do you expect it to be higher?`}>
-                    <Pills label="Horizon" value={horizon} onChange={setHorizon} options={HORIZONS} />
+                  <Section title="When do you expect to sell?">
+                    <Slider
+                      label="Time frame"
+                      stops={HORIZON_STOPS}
+                      value={horizon}
+                      onChange={setHorizon}
+                      format={horizonLabel}
+                      describe={futureDay}
+                      anchors={[{ value: 1, label: "Tomorrow" }, { value: 7, label: "Week" }, { value: 30, label: "Month" }, { value: 90, label: "3 months" }]}
+                    />
                   </Section>
-                  <Section title="How sure are you?">
-                    <Pills label="Conviction" value={conviction} onChange={setConviction} options={CONVICTION} />
+                  <Section title="How much do you expect it to rise by then?">
+                    <Slider
+                      label="Expected gain"
+                      stops={TARGET_STOPS}
+                      value={target}
+                      onChange={setTarget}
+                      format={(v) => (v === null ? "Not sure yet" : `+${v}%`)}
+                      describe={(v) => (v === null ? "" : `about ${money(coin.price * (1 + v / 100))}`)}
+                    />
+                  </Section>
+                  <Section title="How sure are you it'll be higher by then?">
+                    <Slider
+                      label="Conviction"
+                      stops={CONVICTION_STOPS}
+                      value={conviction}
+                      onChange={setConviction}
+                      format={(v) => `${v}%`}
+                      describe={(v) => CONVICTION_WORDS[v]}
+                    />
                   </Section>
                 </>
               )}
 
               {buying && step === 2 && (
                 <>
-                  <Section title="Where would you get out?" hint="Optional, but it's easier to decide now than in the moment.">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm text-graphite">If it falls</span>
-                        <Pills label="Stop loss" allowNone value={stop} onChange={setStop} options={STOPS} />
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm text-graphite">If it rises</span>
-                        <Pills label="Target" allowNone value={target} onChange={setTarget} options={TARGETS} />
-                      </div>
-                    </div>
+                  <Section title="If it goes against you, where do you get out?" hint="Deciding now is easier than deciding in the moment.">
+                    <Slider
+                      label="Stop loss"
+                      stops={STOP_STOPS}
+                      value={stop}
+                      onChange={setStop}
+                      format={(v) => (v === null ? "No stop" : `−${v}%`)}
+                      describe={(v) => (v === null ? "" : `at ${money(coin.price * (1 - v / 100))}`)}
+                    />
                   </Section>
                   <Section title="How are you feeling?">
                     <Pills label="Mood" allowNone value={mood} onChange={setMood} options={MOODS} />
@@ -314,9 +331,9 @@ export default function Ticket({ coin, initialSide = "buy", onClose, onFilled })
                     </p>
                     {buying && (
                       <p className="mt-2 text-graphite">
-                        {conviction}% sure it's higher {horizonLabel}
-                        {stop ? `, out at −${stop}%` : ""}
-                        {target ? `, taking profit at +${target}%` : ""}.
+                        {conviction}% sure it's higher {horizonPhrase(horizon)}
+                        {target ? `, expecting about +${target}%` : ""}
+                        {stop ? `, out at −${stop}%` : ""}.
                       </p>
                     )}
                     {buying && thesis && <blockquote className="mt-4 font-serif text-md italic">“{thesis}”</blockquote>}

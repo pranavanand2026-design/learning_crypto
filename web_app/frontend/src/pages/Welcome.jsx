@@ -8,6 +8,7 @@ import { useAuth } from "../state/auth";
 import { useAccount } from "../state/account";
 import { Wordmark } from "../components/Brand";
 import { Steps, Tiles } from "../components/Pick";
+import RuleChooser from "../components/RuleChooser";
 import CoinMark from "../components/CoinMark";
 
 const POPULAR = ["USD", "EUR", "GBP", "INR", "AUD", "CAD", "SGD", "JPY"];
@@ -105,7 +106,7 @@ export default function Welcome() {
     body = (
       <>
         <p className="-mt-2 mb-6 text-graphite">{rule.hint}</p>
-        <Tiles size="lg" label={rule.question} value={rules[rule.key]} onChange={(v) => setRules({ ...rules, [rule.key]: v })} options={rule.options} />
+        <RuleChooser key={rule.key} size="lg" rule={rule} value={rules[rule.key]} onChange={(v) => setRules({ ...rules, [rule.key]: v })} />
       </>
     );
     next = "Continue";

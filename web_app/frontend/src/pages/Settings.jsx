@@ -4,9 +4,12 @@ import { api } from "../lib/api";
 import { useTheme } from "../lib/theme";
 import { CURRENCIES, LOCALES, allTimeZones, deviceTimeZone } from "../lib/regions";
 import { RULE_QUESTIONS } from "../lib/rules";
+import { resetTours } from "../lib/tours";
 import { useAuth } from "../state/auth";
 import { useAccount } from "../state/account";
-import { Pills, Tiles } from "../components/Pick";
+import { Tiles } from "../components/Pick";
+import RuleChooser from "../components/RuleChooser";
+import { PageHeader } from "../components/Page";
 import Avatar, { PRESETS, PresetArt, imageToAvatar } from "../components/Avatar";
 
 const SECTIONS = [
@@ -15,6 +18,7 @@ const SECTIONS = [
   ["appearance", "Appearance"],
   ["rules", "Your rules"],
   ["security", "Password"],
+  ["help", "Guided tour"],
   ["reset", "Start over"],
 ];
 
@@ -195,8 +199,8 @@ function Rules({ account, onSaved }) {
       <div className="space-y-7">
         {RULE_QUESTIONS.map((q) => (
           <div key={q.key}>
-            <p className="mb-2.5">{q.question}</p>
-            <Pills label={q.question} value={values[q.key]} onChange={(v) => setValues({ ...values, [q.key]: v })} options={q.options} />
+            <p className="mb-3">{q.question}</p>
+            <RuleChooser rule={q} value={values[q.key]} onChange={(v) => setValues({ ...values, [q.key]: v })} />
           </div>
         ))}
       </div>
@@ -241,7 +245,9 @@ export default function Settings() {
       </nav>
 
       <div className="max-w-2xl">
-        <h1 className="mb-10 text-2xl font-light tracking-tight">Settings</h1>
+        <div className="mb-10">
+          <PageHeader title="Settings" sub="Your profile, how things look, and the rules you trade by." />
+        </div>
 
         <Block id="profile" title="Profile">
           <AvatarPicker user={user} onSave={saveProfile} />
@@ -320,6 +326,18 @@ export default function Settings() {
               <Saved state={pwState} />
             </div>
           </form>
+        </Block>
+
+        <Block id="help" title="Guided tour" hint="Walk through each page again, one step at a time.">
+          <button
+            className="btn-quiet"
+            onClick={() => {
+              resetTours(user.id);
+              navigate("/");
+            }}
+          >
+            Show me around again
+          </button>
         </Block>
 
         <Block id="reset" title="Start over" hint="Close every position and get your starting cash back. Your journal and progress stay.">

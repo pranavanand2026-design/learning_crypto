@@ -8,7 +8,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
 
-from . import engine, market
+from . import engine, heat, market, news
 from .models import Trade, TradeNote
 
 
@@ -57,7 +57,17 @@ def app_config(request):
 # --------------------------------------------------------------------------
 # Market
 # --------------------------------------------------------------------------
-def _market_payload(row):
+def _signals():
+    """Shared inputs for heat: headline counts and trending coins (both cached)."""
+    try:
+        mentions = news.mention_counts()
+    except Exception:  # news is best-effort and must never break prices
+        mentions = {}
+    return mentions, set(market.trending_ids())
+
+
+def _market_payload(row, signals=None):
+    mentions, trending = signals or ({}, set())
     spark = (row.get("sparkline_in_7d") or {}).get("price") or []
     step = max(len(spark) // 56, 1)
     return {
@@ -76,6 +86,7 @@ def _market_payload(row):
         "low_24h": row.get("low_24h"),
         "sparkline": spark[::step],
         "live_product": market.live_product(row.get("symbol")),
+        "heat": heat.compute(row, mentions.get(row["id"], 0), row["id"] in trending),
     }
 
 
@@ -88,7 +99,8 @@ def market_list(request):
         rows = market.markets(page=page)
     except (ValueError, market.MarketUnavailable) as exc:
         return unavailable(exc)
-    return Response({"results": [_market_payload(r) for r in rows]})
+    signals = _signals()
+    return Response({"results": [_market_payload(r, signals) for r in rows]})
 
 
 @api_view(["GET"])
@@ -101,7 +113,7 @@ def market_detail(request, coin_id):
     except market.MarketUnavailable as exc:
         return unavailable(exc)
     data = detail.get("market_data") or {}
-    payload = _market_payload(row)
+    payload = _market_payload(row, _signals())
     payload.update({
         "categories": [c for c in (detail.get("categories") or []) if c][:3],
         "description": ((detail.get("description") or {}).get("en") or "").split("\r\n")[0][:600],
@@ -129,6 +141,27 @@ def market_chart(request, coin_id):
     except market.MarketUnavailable as exc:
         return unavailable(exc)
     return Response({"prices": data.get("prices", []), "volumes": data.get("total_volumes", [])})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+@throttle_classes([MarketThrottle])
+def market_news(request, coin_id):
+    try:
+        row = market.market_row(coin_id)
+    except market.MarketUnavailable as exc:
+        return unavailable(exc)
+    return Response({"results": news.coin_headlines(coin_id, row["name"])})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+@throttle_classes([MarketThrottle])
+def news_feed(request):
+    items = news.tagged_headlines()
+    if request.GET.get("linked") == "1":
+        items = [i for i in items if i["coins"]]
+    return Response({"results": items[:40]})
 
 
 @api_view(["GET"])

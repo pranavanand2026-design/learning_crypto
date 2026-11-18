@@ -8,6 +8,7 @@ served instead of invented numbers.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import math
 from dataclasses import dataclass, asdict
@@ -36,7 +37,7 @@ class MarketUnavailable(Exception):
 
 
 def _cached_get(url, params=None, ttl=60, headers=None, key=None):
-    cache_key = key or f"mkt:{url}:{sorted((params or {}).items())}"
+    cache_key = key or "mkt:" + hashlib.sha1(f"{url}?{sorted((params or {}).items())}".encode()).hexdigest()
     hit = cache.get(cache_key)
     if hit is not None:
         return hit

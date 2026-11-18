@@ -6,7 +6,8 @@ import Coin from "./pages/Coin";
 import Portfolio from "./pages/Portfolio";
 import Journal from "./pages/Journal";
 import Progress from "./pages/Progress";
-import Account from "./pages/Account";
+import Settings from "./pages/Settings";
+import Welcome from "./pages/Welcome";
 import { Login, Signup } from "./pages/Auth";
 import { Empty, Loading } from "./components/States";
 
@@ -25,13 +26,15 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/welcome" element={<Welcome />} />
       <Route element={<Shell />}>
         <Route index element={<Market />} />
         <Route path="coin/:id" element={<Coin />} />
         <Route path="portfolio" element={<Private><Portfolio /></Private>} />
         <Route path="journal" element={<Private><Journal /></Private>} />
         <Route path="progress" element={<Private><Progress /></Private>} />
-        <Route path="account" element={<Private><Account /></Private>} />
+        <Route path="settings" element={<Private><Settings /></Private>} />
+        <Route path="account" element={<Navigate to="/settings" replace />} />
         <Route path="*" element={<Empty title="This page doesn't exist.">Head back to the market.</Empty>} />
       </Route>
     </Routes>

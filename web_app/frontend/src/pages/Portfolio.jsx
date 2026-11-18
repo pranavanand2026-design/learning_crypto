@@ -7,6 +7,7 @@ import { useAccount } from "../state/account";
 import CoinMark from "../components/CoinMark";
 import LivePrice from "../components/LivePrice";
 import { Loading, Problem } from "../components/States";
+import Tour from "../components/Tour";
 
 // Ink shades for the allocation bar, largest holding darkest.
 const SHADES = ["bg-ink", "bg-ink/75", "bg-ink/55", "bg-ink/40", "bg-ink/30", "bg-ink/20"];
@@ -40,7 +41,7 @@ function Today({ account }) {
   const { today, rules } = account;
   const cap = rules.max_trades_per_day;
   return (
-    <section className="flex flex-col gap-3 rounded-sheet bg-sheet px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <section data-tour="today" className="flex flex-col gap-3 rounded-sheet bg-sheet px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-4">
         {cap ? (
           <span className="flex gap-1" aria-hidden>
@@ -155,7 +156,8 @@ export default function Portfolio() {
 
   return (
     <div className="space-y-12">
-      <section>
+      <Tour id="portfolio" />
+      <section data-tour="value">
         <h1 className="text-graphite">
           {greeting()}
           {first ? `, ${first}` : ""}.

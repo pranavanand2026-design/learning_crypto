@@ -13,6 +13,7 @@ import Ticket from "../components/Ticket";
 import { HeatMeter } from "../components/Heat";
 import { Headline } from "../components/Headlines";
 import { Loading, Problem } from "../components/States";
+import Tour from "../components/Tour";
 
 const RANGES = [
   { days: "1", label: "1D" },
@@ -55,6 +56,7 @@ export default function Coin() {
 
   return (
     <div>
+      <Tour id="coin" ready={!ticket} />
       <Link to="/" className="text-sm text-graphite hover:text-ink">
         Market
       </Link>
@@ -67,13 +69,13 @@ export default function Coin() {
             <span className="text-graphite">{c.symbol}</span>
             {c.rank && <span className="chip !py-0.5 text-graphite">#{c.rank}</span>}
           </div>
-          <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <div data-tour="price" className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <LivePrice value={price} className="text-3xl font-light tracking-tight md:text-4xl" />
             <span className={`num text-md ${tone(c.change_24h)}`}>{pct(c.change_24h)} today</span>
             {live && <span className="text-xs text-graphite">Live from Coinbase</span>}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div data-tour="trade" className="flex gap-2">
           {user ? (
             <>
               {position && (
@@ -112,7 +114,7 @@ export default function Coin() {
 
       <div className="mt-12 grid gap-12 lg:grid-cols-[1.6fr_1fr]">
         <div className="space-y-12">
-          <section>
+          <section data-tour="moving">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-lg font-medium tracking-tight">What's moving it</h2>
               <HeatMeter heat={c.heat} size="lg" />

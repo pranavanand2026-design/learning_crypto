@@ -35,7 +35,7 @@ export function Wire({ items }) {
   if (!items?.length) return null;
   const [lead, ...rest] = items;
   return (
-    <section aria-label="Headlines" className="grid gap-x-10 gap-y-6 border-b border-rule pb-8 md:grid-cols-[1.4fr_1fr_1fr]">
+    <section aria-label="Headlines" data-tour="wire" className="grid gap-x-10 gap-y-6 border-b border-rule pb-8 md:grid-cols-[1.4fr_1fr_1fr]">
       <Headline item={lead} size="lg" />
       {rest.slice(0, 2).map((i) => (
         <Headline key={i.url} item={i} />

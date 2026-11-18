@@ -9,6 +9,7 @@ import LivePrice from "../components/LivePrice";
 import { HeatMeter } from "../components/Heat";
 import { Wire } from "../components/Headlines";
 import Floor from "../components/Floor";
+import Tour from "../components/Tour";
 import { Loading, Problem } from "../components/States";
 
 const SORTS = [
@@ -39,6 +40,7 @@ export default function Market() {
 
   return (
     <div>
+      <Tour id="market" ready={Boolean(markets.data)} />
       <Floor rows={all} ticks={ticks} />
       <Wire items={news.data?.results} />
 
@@ -76,7 +78,7 @@ export default function Market() {
                 <th className="hidden py-3 pr-2 font-normal md:table-cell">
                   <span className="pl-3">7 days</span>
                 </th>
-                <th className="py-3 pl-2 font-normal">Heat</th>
+                <th className="py-3 pl-2 font-normal" data-tour="heat">Heat</th>
               </tr>
             </thead>
             <tbody>

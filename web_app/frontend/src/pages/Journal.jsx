@@ -2,29 +2,21 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useApi } from "../lib/hooks";
-import { money, qty } from "../lib/format";
-import CoinMark from "../components/CoinMark";
-import { Empty, Loading, Problem } from "../components/States";
+import { day, money, qty, time } from "../lib/format";
+import { Loading, Problem } from "../components/States";
 
-const FILTERS = [
-  { id: "all", label: "Everything", fn: () => true },
-  { id: "buy", label: "Buys", fn: (t) => t.side === "buy" },
-  { id: "sell", label: "Sells", fn: (t) => t.side === "sell" },
-  { id: "open", label: "Calls in progress", fn: (t) => t.resolves_at && t.outcome_correct === null },
-];
+const HORIZON = { 1: "by the next day", 7: "within a week", 30: "within a month" };
+const PAGE = 12;
 
-function Outcome({ t }) {
+/** A rubber stamp in the margin: how the call turned out. */
+function Verdict({ t }) {
   if (t.side !== "buy" || !t.resolves_at) return null;
-  if (t.outcome_correct === null) {
-    return (
-      <span className="text-graphite">
-        Checks on {new Date(t.resolves_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-      </span>
-    );
-  }
+  const pending = t.outcome_correct === null;
+  const label = pending ? day(t.resolves_at) : t.outcome_correct ? "Called it" : "Missed";
+  const cls = pending ? "border-graphite/50 text-graphite" : t.outcome_correct ? "border-gain text-gain" : "border-loss text-loss";
   return (
-    <span className={t.outcome_correct ? "text-gain" : "text-loss"}>
-      {t.outcome_correct ? "Called it" : "Missed"}: {money(t.outcome_price)} after {t.horizon_days === 1 ? "a day" : t.horizon_days === 7 ? "a week" : "a month"}
+    <span title={pending ? "When this call is checked" : undefined} className={`inline-block -rotate-3 whitespace-nowrap rounded-[6px] border-2 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${cls}`}>
+      {label}
     </span>
   );
 }
@@ -33,17 +25,18 @@ function Entry({ t, onNote }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const context = [];
-  if (t.heat !== null && t.heat >= 65) context.push(`Heat was ${t.heat}`);
-  if (t.minutes_since_loss !== null && t.minutes_since_loss <= 30) context.push(`${t.minutes_since_loss} min after a loss`);
-  if (t.mood) context.push(`Felt ${t.mood}`);
+  const bought = t.side === "buy";
+
+  const asides = [];
+  if (t.heat !== null && t.heat >= 65) asides.push(`the market was running hot (heat ${t.heat})`);
+  if (t.minutes_since_loss !== null && t.minutes_since_loss <= 30) asides.push(`${t.minutes_since_loss} minutes after a loss`);
+  if (t.mood) asides.push(`feeling ${t.mood}`);
 
   async function save(e) {
     e.preventDefault();
     setBusy(true);
     try {
-      const updated = await api(`/journal/${t.id}/notes/`, { method: "POST", body: { text } });
-      onNote(updated);
+      onNote(await api(`/journal/${t.id}/notes/`, { method: "POST", body: { text } }));
       setText("");
       setOpen(false);
     } finally {
@@ -52,129 +45,129 @@ function Entry({ t, onNote }) {
   }
 
   return (
-    <li className="grid grid-cols-[2rem_1fr] gap-x-4 py-6 sm:grid-cols-[4.5rem_2rem_1fr]">
-      <time className="num hidden pt-1 text-xs text-graphite sm:block" dateTime={t.created_at}>
-        {new Date(t.created_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
-      </time>
-      <CoinMark src={t.image} symbol={t.symbol} />
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <p>
-            <span className={t.side === "buy" ? "" : "text-graphite"}>{t.side === "buy" ? "Bought" : "Sold"}</span>{" "}
-            <span className="num">{qty(t.quantity)}</span>{" "}
-            <Link to={`/coin/${t.coin_id}`} className="link">
-              {t.symbol}
-            </Link>{" "}
-            at <span className="num">{money(t.price)}</span>
-            {t.realized_pnl !== null && (
-              <span className={`num ml-2 ${t.realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>
-                {money(t.realized_pnl, { sign: true, digits: 2 })}
-              </span>
-            )}
-          </p>
-          {t.conviction && (
-            <span className="text-sm text-graphite">
-              {t.conviction}% sure, {t.horizon_days === 1 ? "1 day" : t.horizon_days === 7 ? "1 week" : "1 month"}
-            </span>
+    <article className="relative grid grid-cols-[4.5rem_1fr] gap-x-6 py-6 sm:grid-cols-[6rem_1fr]">
+      <div className="pt-1 text-right">
+        <time className="num block text-xs text-graphite" dateTime={t.created_at}>
+          {time(t.created_at)}
+        </time>
+        <div className="mt-3">
+          <Verdict t={t} />
+        </div>
+      </div>
+      <div className="min-w-0 font-serif text-md leading-relaxed">
+        <p>
+          {bought ? "Bought" : "Sold"} <span className="num font-sans text-base">{qty(t.quantity)}</span>{" "}
+          <Link to={`/coin/${t.coin_id}`} className="underline decoration-marker decoration-2 underline-offset-4">
+            {t.name}
+          </Link>{" "}
+          at <span className="num font-sans text-base">{money(t.price)}</span>
+          {t.realized_pnl !== null && (
+            <>
+              , <span className={`num font-sans text-base ${t.realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>{money(t.realized_pnl, { sign: true, digits: 2 })}</span>
+            </>
           )}
-        </div>
-
-        {t.thesis && <blockquote className="mt-2 max-w-2xl font-serif text-md italic leading-snug">“{t.thesis}”</blockquote>}
-
-        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-          <Outcome t={t} />
-          {context.map((c) => (
-            <span key={c} className="text-graphite">
-              {c}
-            </span>
-          ))}
-        </div>
-
-        {t.notes.length > 0 && (
-          <ul className="mt-3 space-y-2 border-l-2 border-marker pl-4">
-            {t.notes.map((n) => (
-              <li key={n.created_at} className="text-sm">
-                <span className="font-serif text-base">{n.text}</span>
-                <span className="ml-2 text-xs text-graphite">{new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
-              </li>
-            ))}
-          </ul>
+          .{bought && t.conviction ? ` I was ${t.conviction}% sure it would rise ${HORIZON[t.horizon_days] || ""}.` : ""}
+        </p>
+        {t.thesis && <p className="mt-1 italic">“{t.thesis}”</p>}
+        {asides.length > 0 && <p className="mt-1 text-base text-graphite">Placed {asides.join(", ")}.</p>}
+        {t.outcome_correct !== null && t.outcome_price && (
+          <p className="mt-1 text-base text-graphite">
+            It was {money(t.outcome_price)} when checked.
+          </p>
         )}
 
+        {t.notes.map((n) => (
+          <p key={n.created_at} className="mt-3 border-l-2 border-marker pl-3 text-base">
+            {n.text}
+            <span className="ml-2 font-sans text-xs text-graphite">{day(n.created_at)}</span>
+          </p>
+        ))}
+
         {open ? (
-          <form onSubmit={save} className="mt-3 flex max-w-2xl gap-2">
-            <input
-              autoFocus
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="What did you learn?"
-              className="field font-serif"
-            />
+          <form onSubmit={save} className="mt-3 flex gap-2 font-sans">
+            <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="Looking back…" className="field font-serif" aria-label="Note" />
             <button className="btn-ink" disabled={!text.trim() || busy}>
               Add
             </button>
           </form>
         ) : (
-          <button onClick={() => setOpen(true)} className="mt-3 text-sm text-graphite hover:text-ink">
+          <button onClick={() => setOpen(true)} className="mt-2 font-sans text-sm text-graphite hover:text-ink">
             Add a note
           </button>
         )}
       </div>
-    </li>
+    </article>
   );
 }
 
 export default function Journal() {
   const journal = useApi("/journal/");
-  const [filter, setFilter] = useState("all");
+  const [pages, setPages] = useState(1);
 
+  const all = useMemo(() => journal.data?.results || [], [journal.data]);
   const days = useMemo(() => {
-    const list = (journal.data?.results || []).filter(FILTERS.find((f) => f.id === filter).fn);
     const groups = [];
-    for (const t of list) {
-      const day = new Date(t.created_at).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-      if (groups.at(-1)?.day !== day) groups.push({ day, trades: [] });
+    for (const t of all.slice(0, pages * PAGE)) {
+      const d = day(t.created_at, { weekday: "long", day: "numeric", month: "long" });
+      if (groups.at(-1)?.day !== d) groups.push({ day: d, trades: [] });
       groups.at(-1).trades.push(t);
     }
     return groups;
-  }, [journal.data, filter]);
+  }, [all, pages]);
 
-  const replace = (updated) =>
-    journal.setData({ results: journal.data.results.map((t) => (t.id === updated.id ? updated : t)) });
+  const replace = (updated) => journal.setData({ results: all.map((t) => (t.id === updated.id ? updated : t)) });
 
   return (
-    <div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <h1 className="text-2xl font-light tracking-tight">Journal</h1>
-        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Filter">
-          {FILTERS.map((f) => (
-            <button key={f.id} role="radio" aria-checked={filter === f.id} onClick={() => setFilter(f.id)} className="chip">
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="mx-auto max-w-3xl">
+      {/* The page: ruled lines and a margin, like a trading notebook */}
+      <div
+        className="relative overflow-hidden rounded-[4px_18px_18px_4px] bg-sheet px-5 pb-12 pt-10 shadow-[0_1px_0_rgb(var(--rule)),0_24px_48px_-24px_rgb(var(--ink)/0.25)] sm:px-10"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(to bottom, transparent 0, transparent calc(2rem - 1px), rgb(var(--rule) / 0.7) calc(2rem - 1px), rgb(var(--rule) / 0.7) 2rem)",
+        }}
+      >
+        <span className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-ink/10 to-transparent" aria-hidden />
+        <span className="absolute inset-y-0 left-[6.5rem] w-px bg-loss/40 sm:left-[9.25rem]" aria-hidden />
+        <header className="mb-8 pl-[6rem] sm:pl-[7.5rem]">
+          <h1 className="font-serif text-3xl italic tracking-tight">My trading journal</h1>
+          <p className="mt-1 text-sm text-graphite">
+            {all.length ? `${all.length} entr${all.length === 1 ? "y" : "ies"}. Nothing here can be erased; add what you learn.` : ""}
+          </p>
+        </header>
 
-      {journal.loading && !journal.data ? (
-        <Loading />
-      ) : journal.error ? (
-        <Problem error={journal.error} onRetry={journal.reload} />
-      ) : days.length === 0 ? (
-        <Empty title={filter === "all" ? "Your journal is empty." : "Nothing here yet."}>
-          Every trade you make lands here with the reason you gave.
-        </Empty>
-      ) : (
-        days.map((g) => (
-          <section key={g.day} className="mt-10">
-            <h2 className="border-b border-ink pb-2 text-sm font-medium">{g.day}</h2>
-            <ol className="ruled">
+        {journal.loading && !journal.data ? (
+          <Loading />
+        ) : journal.error ? (
+          <Problem error={journal.error} onRetry={journal.reload} />
+        ) : all.length === 0 ? (
+          <div className="py-10 font-serif text-lg italic text-graphite pl-[6rem] sm:pl-[7.5rem]">
+            The first page is blank. Every trade you make is written here with the reason you gave.
+            <div className="mt-6 font-sans not-italic">
+              <Link to="/" className="btn-ink">
+                Find a coin
+              </Link>
+            </div>
+          </div>
+        ) : (
+          days.map((g) => (
+            <section key={g.day} className="mt-6">
+              <h2 className="font-serif text-lg font-medium pl-[6rem] sm:pl-[7.5rem]">{g.day}</h2>
               {g.trades.map((t) => (
                 <Entry key={t.id} t={t} onNote={replace} />
               ))}
-            </ol>
-          </section>
-        ))
-      )}
+            </section>
+          ))
+        )}
+
+        {all.length > pages * PAGE && (
+          <div className="mt-6 pl-[6rem] sm:pl-[7.5rem]">
+            <button onClick={() => setPages(pages + 1)} className="btn-quiet">
+              Turn the page
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

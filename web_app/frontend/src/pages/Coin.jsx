@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useApi } from "../lib/hooks";
 import { useLiveTicks } from "../lib/live";
 import { compact, money, pct, qty, tone, when } from "../lib/format";
@@ -36,7 +36,8 @@ export default function Coin() {
   const { user } = useAuth();
   const { data: account } = useAccount();
   const [range, setRange] = useState("7");
-  const [ticket, setTicket] = useState(null);
+  const [params, setParams] = useSearchParams();
+  const [ticket, setTicket] = useState(user ? params.get("trade") : null);
   const coin = useApi(`/market/${id}/`, { interval: 120000 });
   const chart = useApi(`/market/${id}/chart/?days=${range}`);
   const news = useApi(`/market/${id}/news/`);
@@ -134,16 +135,19 @@ export default function Coin() {
 
           <section>
             <h2 className="text-lg font-medium tracking-tight">Headlines</h2>
+            {news.data?.scope === "market" && (
+              <p className="mt-2 text-sm text-graphite">Nothing names {c.name} this week. Here's what's moving the wider market.</p>
+            )}
             {news.data?.results?.length ? (
               <div className="ruled mt-2">
                 {news.data.results.map((item) => (
                   <div key={item.url} className="py-4">
-                    <Headline item={item} showCoins={false} />
+                    <Headline item={item} showCoins={news.data.scope === "market"} />
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="mt-4 text-graphite">{news.loading ? "Loading headlines" : `No recent headlines mention ${c.name}.`}</p>
+              <p className="mt-4 text-graphite">Loading headlines</p>
             )}
           </section>
         </div>
@@ -219,7 +223,10 @@ export default function Coin() {
         <Ticket
           coin={{ ...c, price }}
           initialSide={ticket}
-          onClose={() => setTicket(null)}
+          onClose={() => {
+            setTicket(null);
+            if (params.has("trade")) setParams({}, { replace: true });
+          }}
           onFilled={() => journal.reload()}
         />
       )}

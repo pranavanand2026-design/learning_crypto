@@ -27,12 +27,19 @@ export function useTheme() {
     };
   }, []);
   const setTheme = (next) => {
-    document.documentElement.dataset.theme = next;
     try {
-      localStorage.setItem("theme", next);
+      if (next === "system") {
+        delete document.documentElement.dataset.theme;
+        localStorage.removeItem("theme");
+      } else {
+        document.documentElement.dataset.theme = next;
+        localStorage.setItem("theme", next);
+      }
     } catch {
       /* storage unavailable */
     }
+    setThemeState(currentTheme());
   };
-  return [theme, setTheme];
+  const choice = document.documentElement.dataset.theme || "system";
+  return [theme, setTheme, choice];
 }

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useApi } from "../lib/hooks";
-import { money, pct, tone } from "../lib/format";
+import { day, money, pct, tone } from "../lib/format";
+import { Milestones, Activity } from "../components/Training";
 import { Loading, Problem } from "../components/States";
 
 function Calibration({ cal }) {
@@ -16,7 +17,7 @@ function Calibration({ cal }) {
   if (cal.resolved >= 3 && top) {
     headline = `When you feel ${top.conviction}% sure, you're right ${Math.round(top.hit_rate)}% of the time.`;
   } else if (cal.pending) {
-    headline = `${cal.pending} call${cal.pending > 1 ? "s" : ""} in progress. The next one is checked ${new Date(cal.next_resolves_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.`;
+    headline = `${cal.pending} call${cal.pending > 1 ? "s" : ""} in progress. The next one is checked ${day(cal.next_resolves_at)}.`;
   } else {
     headline = "Make a few calls to see how well your confidence matches what happens.";
   }
@@ -54,6 +55,10 @@ function Calibration({ cal }) {
         <text x={x(93)} y={y(95) - 6} textAnchor="end" className="fill-current text-[11px]">
           Perfectly matched
         </text>
+        {points.length === 0 &&
+          [50, 60, 70, 80, 90].map((c) => (
+            <circle key={c} cx={x(c)} cy={y(c)} r="9" className="fill-none stroke-graphite/40" strokeDasharray="3 3" />
+          ))}
         {points.map((b) => (
           <g key={b.conviction}>
             <line x1={x(b.conviction)} x2={x(b.conviction)} y1={y(b.conviction)} y2={y(b.hit_rate)} className="stroke-loss/50" />
@@ -68,7 +73,18 @@ function Calibration({ cal }) {
   );
 }
 
-function Compare({ title, sentence, rows }) {
+function Locked({ title, unlock }) {
+  return (
+    <section className="rounded-sheet border border-dashed border-rule px-5 py-6">
+      <h2 className="text-sm text-graphite">{title}</h2>
+      <p className="mt-2 text-graphite">{unlock}</p>
+    </section>
+  );
+}
+
+function Compare({ title, sentence, rows, unlock }) {
+  // A comparison needs both sides; until then, say what unlocks it.
+  if (unlock && rows.some((r) => !r.n || r.value === null)) return <Locked title={title} unlock={unlock} />;
   const vals = rows.map((r) => Math.abs(r.value ?? 0));
   const max = Math.max(...vals, 1);
   return (
@@ -144,15 +160,27 @@ export default function Progress() {
       <div className="flex items-end justify-between">
         <h1 className="text-2xl font-light tracking-tight">Progress</h1>
         <span className="text-sm text-graphite">
-          {data.trades} trades over {data.active_days} day{data.active_days === 1 ? "" : "s"}
+          {data.trades} trade{data.trades === 1 ? "" : "s"} over {data.active_days} day{data.active_days === 1 ? "" : "s"}
         </span>
       </div>
 
+      <Milestones data={data} />
+
       <Calibration cal={data.calibration} />
 
+      <Activity daily={data.daily} cap={data.max_trades_per_day} />
+
       <section className="grid grid-cols-2 gap-x-8 gap-y-10 border-y border-rule py-10 md:grid-cols-4">
-        <Figure label="Winning exits" value={closed.win_rate === null ? "–" : pct(closed.win_rate, { sign: false, digits: 0 })} hint={`${closed.wins} of ${closed.wins + closed.losses}`} />
-        <Figure label="Average win" value={money(closed.avg_win, { digits: 2 })} hint={closed.avg_loss !== null ? `Average loss ${money(closed.avg_loss, { digits: 2 })}` : null} />
+        <Figure
+          label="Winning exits"
+          value={closed.win_rate === null ? "–" : pct(closed.win_rate, { sign: false, digits: 0 })}
+          hint={closed.wins + closed.losses ? `${closed.wins} of ${closed.wins + closed.losses}` : "After your first sale"}
+        />
+        <Figure
+          label="Average win"
+          value={closed.avg_win === null ? "–" : money(closed.avg_win, { digits: 2 })}
+          hint={closed.avg_loss !== null ? `Average loss ${money(closed.avg_loss, { digits: 2 })}` : null}
+        />
         <Figure label="Trades per active day" value={data.trades_per_active_day} />
         <Figure label="Paid in costs" value={money(costs.fees + costs.slippage, { digits: 2 })} hint={`${money(costs.fees, { digits: 2 })} fees, ${money(costs.slippage, { digits: 2 })} slippage`} />
       </section>
@@ -160,6 +188,7 @@ export default function Progress() {
       <div className="grid gap-16 lg:grid-cols-2">
         <Compare
           title="Hype"
+          unlock="Unlocks once you've bought into both hot and calm markets."
           sentence={heatSentence}
           rows={[
             { label: "Into the heat", n: heat.hot_buys, value: heat.hot_return },
@@ -168,18 +197,21 @@ export default function Progress() {
         />
         <Compare
           title="After a loss"
+          unlock="Unlocks after your first losing exit."
           sentence={lossSentence}
           rows={[
             { label: "Right after", n: afterLoss.buys, value: afterLoss.return },
             { label: "Every other buy", n: data.buys - afterLoss.buys, value: afterLoss.others_return },
           ]}
         />
-        {mood.length > 0 && (
+        {mood.length > 0 ? (
           <Compare
             title="Mood"
             sentence="How your buys have done, by how you felt when you placed them."
             rows={mood.map((m) => ({ label: m.mood[0].toUpperCase() + m.mood.slice(1), n: m.buys, value: m.return }))}
           />
+        ) : (
+          <Locked title="Mood" unlock="Note how you feel when you buy, and this shows which moods serve you." />
         )}
         <section>
           <h2 className="text-sm text-graphite">Exit plans</h2>

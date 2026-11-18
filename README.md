@@ -1,172 +1,83 @@
 # CryptoDash
 
-A cryptocurrency portfolio management and trading simulation platform designed for beginners to learn crypto trading without financial risk.
+A paper-trading gym for crypto. You trade live markets with $10,000 of practice money, and the app trains the habits that real money punishes: overconfidence, chasing hype, and trading on tilt.
 
-**Live Demo**: [https://cryptodash-404454446141.us-central1.run.app](https://cryptodash-404454446141.us-central1.run.app)
+## Why
 
-## Problem Statement
+Most beginners don't lose money because they can't read a chart. They lose it to behaviour: buying what social media is excited about, trading more after a loss, and being far more confident than their results justify. Crypto makes this worse, with thin markets that are easy to move and a constant stream of hype.
 
-The cryptocurrency market presents significant barriers for newcomers:
+Most paper-trading tools make it worse still: perfect fills, unlimited money and a leaderboard. CryptoDash keeps the market real and puts the feedback where the decisions happen.
 
-- **High Risk of Loss**: Beginners often lose money learning to trade with real funds
-- **Complex Interfaces**: Most trading platforms are overwhelming for new users
-- **Information Overload**: Difficult to track portfolios across multiple exchanges
-- **No Safe Practice Environment**: Limited options to practice trading strategies risk-free
+## What it does
 
-CryptoDash solves these problems by providing a **sandbox environment** where users can:
-- Practice trading with simulated portfolios
-- Track watchlists and monitor market trends
-- Learn trading strategies without risking real money
-- Understand portfolio management fundamentals
+| | |
+|---|---|
+| **Realistic fills** | Server-side prices. Buys and sells walk Coinbase's live order book (or a square-root impact model for unlisted coins) and pay a 0.4% fee. You can't spend cash you don't have, set your own price, or backdate a trade. |
+| **A reason for every buy** | The trade ticket asks why, how sure you are over what horizon, where you'd exit, and how you feel. Calls are checked against the price at the horizon. |
+| **Heat** | Each coin's 24h move is compared with its own typical move, and its volume, headline count (relative to its size) and search trending are scored. The ticket for a hot coin explains what's driving it and holds the button for twenty seconds. |
+| **News linked to coins** | CoinDesk, Cointelegraph and Decrypt headlines are tagged with the coins they mention, with a GDELT fallback for coins with little coverage. |
+| **Your own rules** | Daily trade cap, daily loss limit, cool-down after a losing exit, and maximum position size. New buys pause when you hit one; selling never does. |
+| **An honest journal** | Trades are append-only. You can add notes after the fact but never edit or delete a decision. |
+| **Progress** | A confidence chart (stated conviction vs. hit rate), returns buying into heat vs. calm markets, buys right after a loss, returns by mood, stop discipline, and what fees and slippage have cost you. Your portfolio is always shown next to simply holding Bitcoin. |
 
 ## Architecture
 
 ```mermaid
-flowchart TB
-    subgraph Frontend["Frontend - React 19 + Vite"]
-        Dashboard[Dashboard]
-        Portfolio[Portfolio]
-        Watchlist[Watchlist]
-        Simulation[Simulation]
-    end
-
-    subgraph API["Django REST API"]
-        Auth[Authentication]
-        PortfolioSvc[Portfolio Service]
-        MarketSvc[Market Data]
-        ORM[Django ORM]
-    end
-
-    subgraph Database["PostgreSQL"]
-        Users[(Users)]
-        Coins[(Coins)]
-        Holdings[(Holdings)]
-        Transactions[(Transactions)]
-        Simulations[(Simulations)]
-    end
-
-    CoinGecko[CoinGecko API]
-
-    Frontend -->|HTTPS + JWT| API
-    Auth --> ORM
-    PortfolioSvc --> ORM
-    MarketSvc --> ORM
-    ORM --> Database
-    MarketSvc -->|REST| CoinGecko
-```
-
-## Security & Reliability
-
-### Authentication
-- **JWT Tokens**: Short-lived access tokens (15 min) with rotating refresh tokens (7 days)
-- **Password Hashing**: PBKDF2 with SHA256 (720,000 iterations)
-- **reCAPTCHA v2**: Bot prevention on login and registration
-- **Session Management**: Secure cookie handling with SameSite protection
-
-### Data Protection
-- **CSRF Protection**: Cross-Site Request Forgery prevention on all state-changing operations
-- **CORS Configuration**: Strict origin validation for API requests
-- **Input Validation**: Server-side validation on all user inputs via Django REST Framework serializers
-- **SQL Injection Prevention**: Parameterized queries through Django ORM
-
-### Password Security
-- Minimum 8 characters required
-- Must contain uppercase, lowercase, numbers, and special characters
-- Password similarity check against user attributes
-- Common password dictionary validation
-
-### Infrastructure
-- **HTTPS Only**: SSL/TLS encryption in transit
-- **Environment Variables**: Secrets stored securely, never in code
-- **Cloud Run**: Auto-scaling, managed infrastructure with built-in DDoS protection
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 19, Vite, Tailwind CSS, DaisyUI |
-| Backend | Django 5.2, Django REST Framework |
-| Database | PostgreSQL (Production), SQLite (Development) |
-| Authentication | JWT (SimpleJWT), Google reCAPTCHA |
-| Market Data | CoinGecko API |
-| Deployment | Google Cloud Run |
-
-## Features
-
-- **Portfolio Management**: Track holdings, view profit/loss, manage positions
-- **Trading Simulation**: Practice buy/sell without real money
-- **Watchlist**: Monitor favorite cryptocurrencies
-- **Market Data**: Real-time prices for top 100 cryptocurrencies
-- **Price Charts**: Historical price visualization
-- **User Preferences**: Customizable currency, timezone, date format
-
-## Local Development
-
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- npm
-
-### Quick Start
-```bash
-# Clone the repository
-git clone https://github.com/pranavanand2026-design/learning_crypto.git
-cd learning_crypto
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Run the application
-python run.py
-```
-
-This will:
-1. Install Python dependencies
-2. Run database migrations
-3. Install frontend dependencies
-4. Start backend server (http://localhost:8000)
-5. Start frontend dev server (http://localhost:5173)
-
-## Deployment
-
-The application is deployed on **Google Cloud Run**, a fully managed serverless platform that automatically scales containers based on traffic.
-
-### Deployment Architecture
-```mermaid
 flowchart LR
-    subgraph GCP["Google Cloud Platform"]
-        Build[Cloud Build]
-        Registry[Container Registry]
-        Run[Cloud Run]
-        SQL[(Cloud SQL)]
-        Secrets[Secret Manager]
+    subgraph Browser
+        UI[React 19 + Vite]
+        WS[Coinbase WebSocket<br/>live ticks]
     end
+    subgraph Django["Django 5 + DRF (one container)"]
+        SPA[WhiteNoise: built SPA]
+        Auth[web_app: accounts, JWT]
+        Trading[trading: engine, rules,<br/>heat, news, insights]
+    end
+    DB[(SQLite / Postgres)]
+    CG[CoinGecko]
+    CB[Coinbase order book]
+    RSS[RSS feeds + GDELT]
 
-    GitHub[GitHub] -->|Push| Build
-    Build -->|Image| Registry
-    Registry -->|Deploy| Run
-    Run <-->|Data| SQL
-    Secrets -->|Inject| Run
+    UI -->|/api, JWT + refresh cookie| Django
+    UI --- WS
+    Trading --> CG
+    Trading --> CB
+    Trading --> RSS
+    Django --> DB
 ```
 
-### Key Deployment Features
-- **Multi-stage Docker Build**: Frontend compiled with Node.js, served by Django with WhiteNoise
-- **Zero-downtime Deployments**: New revisions deploy without service interruption
-- **Auto-scaling**: Scales from 0 to N instances based on request volume
-- **Managed SSL**: HTTPS certificates automatically provisioned and renewed
-- **Environment Isolation**: Secrets injected at runtime via environment variables
+- `trading/market.py`: CoinGecko reference data, Coinbase order book, fill simulation. Everything is cached, and the last good copy is served during outages instead of made-up numbers.
+- `trading/engine.py`: quotes, order execution and rule checks, atomic per account.
+- `trading/heat.py`, `trading/news.py`, `trading/insights.py`: the signals and the feedback.
+- `web_app/`: users, authentication and the original portfolio/simulation API (kept for compatibility).
+- `web_app/frontend/`: the React app. Charts use TradingView Lightweight Charts.
 
-### Build Process
+## Running locally
+
+Requires Python 3.11+ and Node 20+.
+
 ```bash
-# Build and deploy with Cloud Build
-gcloud builds submit --tag gcr.io/PROJECT_ID/cryptodash
-gcloud run deploy cryptodash --image gcr.io/PROJECT_ID/cryptodash --platform managed
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env            # set DJANGO_SECRET_KEY
+python manage.py migrate
+(cd web_app/frontend && npm install && npm run build)
+python manage.py runserver      # http://localhost:8000
 ```
 
-## API Documentation
+For frontend work with hot reload, run `npm run dev` in `web_app/frontend` (port 5173, proxies `/api` to Django).
 
-See [APIDocumentation.md](./APIDocumentation.md) for detailed endpoint specifications.
+Tests:
+
+```bash
+pytest
+```
+
+## Configuration
+
+All settings come from the environment (see `.env.example`): `DJANGO_SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS`, `DATABASE_URL`, `COINGECKO_API_KEY` (optional demo key), and the optional `RECAPTCHA_*` settings. Without reCAPTCHA configured, login doesn't ask for a captcha.
+
+Data sources: CoinGecko (prices, metadata, history), Coinbase Exchange public API (order books, live ticker), CoinDesk / Cointelegraph / Decrypt RSS, and GDELT.
 
 ## Team
 

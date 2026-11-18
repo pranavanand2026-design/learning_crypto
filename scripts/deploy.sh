@@ -5,6 +5,7 @@
 #
 # Optional environment:
 #   REGION         Cloud Run region (default us-central1)
+#   GOOGLE_CLIENT_ID  OAuth web client id to enable "Sign in with Google".
 #   DATABASE_URL   Postgres URL to keep data between restarts. Without it the
 #                  app uses SQLite inside the container, which resets whenever
 #                  Cloud Run replaces the instance (fine for a demo).
@@ -62,7 +63,7 @@ gcloud run deploy "$SERVICE" \
   --memory 512Mi \
   --max-instances "$MAX_INSTANCES" \
   --set-secrets "$SECRETS" \
-  --set-env-vars "^@^DEBUG=False@ALLOWED_HOSTS=.run.app@CSRF_TRUSTED_ORIGINS=https://*.run.app@CORS_ALLOWED_ORIGINS=" \
+  --set-env-vars "^@^DEBUG=False@ALLOWED_HOSTS=.run.app@CSRF_TRUSTED_ORIGINS=https://*.run.app@CORS_ALLOWED_ORIGINS=@GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}" \
   --quiet
 
 URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')"

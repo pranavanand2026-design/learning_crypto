@@ -144,3 +144,23 @@ def test_unverified_google_email_rejected(settings):
 def test_config_exposes_google_client_id(client, settings):
     settings.GOOGLE_CLIENT_ID = "abc.apps.googleusercontent.com"
     assert client.get("/api/config/").data["google_client_id"] == "abc.apps.googleusercontent.com"
+
+
+@pytest.mark.django_db
+def test_one_users_typos_dont_lock_others_on_same_network(client, settings):
+    settings.RECAPTCHA_REQUIRED = False
+    make_user("a@example.com")
+    make_user("b@example.com")
+    url = reverse("login")
+    for _ in range(security.MAX_FAILURES):
+        client.post(url, {"email": "a@example.com", "password": "nope-nope-1"})
+    assert client.post(url, {"email": "b@example.com", "password": "Sturdy-pass-2024"}).status_code == 200
+
+
+@pytest.mark.django_db
+def test_ip_locks_after_many_failures_across_accounts(client, settings):
+    settings.RECAPTCHA_REQUIRED = False
+    url = reverse("login")
+    for i in range(security.MAX_IP_FAILURES):
+        client.post(url, {"email": f"x{i}@example.com", "password": "nope-nope-1"})
+    assert client.post(url, {"email": "new@example.com", "password": "whatever-1"}).status_code == 429

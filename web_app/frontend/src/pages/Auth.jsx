@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/auth";
 import { useApi } from "../lib/hooks";
@@ -6,6 +6,7 @@ import { useLiveTicks } from "../lib/live";
 import { money, pct } from "../lib/format";
 import { Wordmark } from "../components/Brand";
 import CoinMark from "../components/CoinMark";
+import GoogleButton from "../components/GoogleButton";
 import LivePrice from "../components/LivePrice";
 
 const ReCAPTCHA = lazy(() => import("react-google-recaptcha"));
@@ -93,7 +94,7 @@ function Field({ label, type = "text", ...props }) {
 }
 
 function Strength({ password }) {
-  const score = [password.length >= 8, /\d/.test(password), /[a-z]/i.test(password) && /[^a-z0-9]/i.test(password), password.length >= 12].filter(Boolean).length;
+  const score = [password.length >= 10, /\d/.test(password) && /[a-z]/i.test(password), /[^a-z0-9]/i.test(password), password.length >= 14].filter(Boolean).length;
   const label = ["", "Weak", "Okay", "Good", "Strong"][score];
   return (
     <div className="mt-2" aria-live="polite">
@@ -117,6 +118,7 @@ export function Login() {
   const [busy, setBusy] = useState(false);
   const [fails, setFails] = useState(0);
   const captchaRef = useRef(null);
+  const onGoogle = useGoogle(setError, setFails);
   if (user) return <Navigate to={location.state?.from || "/"} replace />;
 
   async function submit(e) {
@@ -127,7 +129,12 @@ export function Login() {
       await login(form.email.trim().toLowerCase(), form.password, captcha);
       navigate(location.state?.from || "/", { replace: true });
     } catch (err) {
-      setError(err.status === 401 ? "That email and password don't match." : err.message);
+      if (err.status === 429 && err.body?.retry_at) {
+        const mins = Math.max(1, Math.ceil((new Date(err.body.retry_at) - Date.now()) / 60000));
+        setError(`Too many attempts. For your security, try again in ${mins} minute${mins === 1 ? "" : "s"}.`);
+      } else {
+        setError(err.status === 401 ? "That email and password don't match." : err.message);
+      }
       setFails((n) => n + 1);
       captchaRef.current?.reset();
       setCaptcha(null);
@@ -138,7 +145,13 @@ export function Login() {
 
   return (
     <Frame title="Welcome back" sub="Your portfolio is where you left it." shakeKey={fails}>
-      <form onSubmit={submit} className="mt-8 space-y-5">
+      {config.google_client_id && (
+        <div className="mt-8">
+          <GoogleButton clientId={config.google_client_id} onCredential={onGoogle} text="signin_with" />
+          <Or />
+        </div>
+      )}
+      <form onSubmit={submit} className={`${config.google_client_id ? "" : "mt-8"} space-y-5`}>
         <Field label="Email" type="email" autoComplete="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <Field label="Password" type="password" autoComplete="current-password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
         <Captcha siteKey={config.recaptcha_site_key} onChange={setCaptcha} captchaRef={captchaRef} />
@@ -159,9 +172,37 @@ export function Login() {
 }
 
 const RULES = [
-  { test: (p) => p.length >= 8, label: "8 or more characters" },
+  { test: (p) => p.length >= 10, label: "10 or more characters" },
   { test: (p) => /\d/.test(p) && /[a-z]/i.test(p), label: "Letters and numbers" },
 ];
+
+function Or() {
+  return (
+    <div className="my-6 flex items-center gap-3 text-xs text-graphite">
+      <span className="h-px flex-1 bg-rule" />
+      or
+      <span className="h-px flex-1 bg-rule" />
+    </div>
+  );
+}
+
+function useGoogle(setError, setFails) {
+  const { googleLogin } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  return useCallback(
+    async (credential) => {
+      try {
+        const created = await googleLogin(credential);
+        navigate(created ? "/welcome" : location.state?.from || "/", { replace: true });
+      } catch (err) {
+        setError(err.message);
+        setFails((n) => n + 1);
+      }
+    },
+    [googleLogin, navigate, location.state, setError, setFails],
+  );
+}
 
 export function Signup() {
   const { user, signup, config } = useAuth();
@@ -171,6 +212,7 @@ export function Signup() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [fails, setFails] = useState(0);
+  const onGoogle = useGoogle(setError, setFails);
   if (user) return <Navigate to="/" replace />;
   const strong = RULES.every((r) => r.test(form.password));
 
@@ -195,7 +237,13 @@ export function Signup() {
 
   return (
     <Frame title="Create your account" sub={`Start with ${money(config.starting_cash, { digits: 0, raw: true })} in practice money.`} shakeKey={fails}>
-      <form onSubmit={submit} className="mt-8 space-y-5">
+      {config.google_client_id && (
+        <div className="mt-8">
+          <GoogleButton clientId={config.google_client_id} onCredential={onGoogle} text="signup_with" />
+          <Or />
+        </div>
+      )}
+      <form onSubmit={submit} className={`${config.google_client_id ? "" : "mt-8"} space-y-5`}>
         <Field label="Name" autoComplete="name" required value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
         <Field label="Email" type="email" autoComplete="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <div>
@@ -206,7 +254,7 @@ export function Signup() {
         {error && <p className="text-sm text-loss" role="alert">{error}</p>}
         <button className="btn-accent btn-lift w-full !py-3.5" disabled={busy || !strong || (config.recaptcha_site_key && !captcha)}>
           {busy ? <Spinner /> : null}
-          {busy ? "Creating account" : strong ? "Create account" : "8+ characters, with a number"}
+          {busy ? "Creating account" : strong ? "Create account" : "10+ characters, letters and numbers"}
         </button>
       </form>
       <p className="mt-6 text-sm text-graphite">

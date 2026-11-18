@@ -29,6 +29,13 @@ export function AuthProvider({ children }) {
     return loadProfile();
   };
 
+  const googleLogin = async (credential) => {
+    const res = await api("/accounts/google/", { method: "POST", body: { credential }, retry: false });
+    setToken(res.access_token);
+    await loadProfile();
+    return res.created;
+  };
+
   const signup = async ({ email, password, display_name, captcha_token }) => {
     await api("/accounts/register/", { method: "POST", body: { email, password, display_name }, retry: false });
     return login(email, password, captcha_token);
@@ -44,7 +51,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, ready, config, login, signup, logout, setUser, loadProfile }}>
+    <AuthContext.Provider value={{ user, ready, config, login, googleLogin, signup, logout, setUser, loadProfile }}>
       {children}
     </AuthContext.Provider>
   );

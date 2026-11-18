@@ -64,13 +64,14 @@ class BreachedPasswordValidator:
 # --------------------------------------------------------------------------
 # Login throttling
 # --------------------------------------------------------------------------
-MAX_FAILURES = 5
+MAX_FAILURES = 5          # per email address
+MAX_IP_FAILURES = 20      # per IP (higher: shared networks like campuses)
 LOCK_SECONDS = 15 * 60
 
 
 def _keys(email, ip):
     email_key = hashlib.sha256((email or "").strip().lower().encode()).hexdigest()[:24]
-    return [f"login-fail:e:{email_key}", f"login-fail:ip:{ip or 'unknown'}"]
+    return [(f"login-fail:e:{email_key}", MAX_FAILURES), (f"login-fail:ip:{ip or 'unknown'}", MAX_IP_FAILURES)]
 
 
 def client_ip(request):
@@ -82,16 +83,16 @@ def client_ip(request):
 
 def locked_until(email, ip):
     """Return when the lock lifts, or None if logins are allowed."""
-    for key in _keys(email, ip):
+    for key, limit in _keys(email, ip):
         state = cache.get(key)
-        if state and state["count"] >= MAX_FAILURES:
+        if state and state["count"] >= limit:
             return state["until"]
     return None
 
 
 def record_failure(email, ip):
     now = timezone.now()
-    for key in _keys(email, ip):
+    for key, _ in _keys(email, ip):
         state = cache.get(key) or {"count": 0}
         state["count"] += 1
         state["until"] = now + timezone.timedelta(seconds=LOCK_SECONDS)
@@ -99,7 +100,8 @@ def record_failure(email, ip):
 
 
 def clear_failures(email, ip):
-    cache.delete_many(_keys(email, ip))
+    # Only the account's counter resets; the IP keeps its history.
+    cache.delete(_keys(email, ip)[0][0])
 
 
 # --------------------------------------------------------------------------

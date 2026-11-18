@@ -221,7 +221,7 @@ export default function Settings() {
   const [theme, setTheme, themeChoice] = useTheme();
   const [name, setName] = useState(user.display_name || "");
   const [nameState, setNameState] = useState(null);
-  const [pw, setPw] = useState({ old_password: "", new_password: "" });
+  const [pw, setPw] = useState({ current_password: "", new_password: "" });
   const [pwState, setPwState] = useState(null);
   const [confirmReset, setConfirmReset] = useState(false);
 
@@ -299,14 +299,17 @@ export default function Settings() {
           {account && <Rules account={account} onSaved={reload} />}
         </Block>
 
-        <Block id="security" title="Password">
+        <Block id="security" title="Password" hint={user.has_password ? "At least 10 characters with letters and numbers. We also block passwords seen in data breaches." : undefined}>
+          {!user.has_password ? (
+            <p className="text-graphite">You sign in with Google, so there's no password to manage here.</p>
+          ) : (
           <form
             className="max-w-sm space-y-4"
             onSubmit={async (e) => {
               e.preventDefault();
               try {
                 await api("/accounts/change-password/", { method: "POST", body: pw });
-                setPw({ old_password: "", new_password: "" });
+                setPw({ current_password: "", new_password: "" });
                 setPwState("Saved");
               } catch (err) {
                 setPwState(err.message);
@@ -315,7 +318,7 @@ export default function Settings() {
           >
             <label className="block">
               <span className="text-sm text-graphite">Current password</span>
-              <input type="password" autoComplete="current-password" className="field mt-1.5" value={pw.old_password} onChange={(e) => setPw({ ...pw, old_password: e.target.value })} required />
+              <input type="password" autoComplete="current-password" className="field mt-1.5" value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} required />
             </label>
             <label className="block">
               <span className="text-sm text-graphite">New password</span>
@@ -326,6 +329,7 @@ export default function Settings() {
               <Saved state={pwState} />
             </div>
           </form>
+          )}
         </Block>
 
         <Block id="help" title="Guided tour" hint="Walk through each page again, one step at a time.">

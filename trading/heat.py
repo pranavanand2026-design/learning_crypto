@@ -48,11 +48,17 @@ def compute(row, mentions=0, trending=False):
         # Stablecoins churn constantly by design; volume says nothing about hype.
         turnover = 0
 
+    # Big coins are always in the news and in search; only attention beyond
+    # what's normal for a coin of this size counts toward heat.
+    rank = row.get("market_cap_rank") or 100
+    expected_mentions = 14 / math.sqrt(rank)
+    surplus_mentions = max(mentions - expected_mentions, 0)
+
     raw = (
         0.5 * max(move_ratio - 1, 0)
         + 0.35 * max(turnover / NORMAL_TURNOVER - 1, 0)
-        + min(mentions, 8) * 0.04
-        + (0.35 if trending else 0)
+        + min(surplus_mentions * 0.06, 0.4)
+        + (0.3 if trending and rank > 10 else 0)
     )
     score = round(100 * (1 - math.exp(-raw)))
     level = HOT if score >= 65 else WARM if score >= 35 else QUIET

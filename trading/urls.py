@@ -4,6 +4,7 @@ from . import views
 
 urlpatterns = [
     path("config/", views.app_config, name="app-config"),
+    path("fx/", views.fx_rates, name="fx"),
     path("market/", views.market_list, name="market-list"),
     path("market/search/", views.market_search, name="market-search"),
     path("market/<str:coin_id>/", views.market_detail, name="market-detail"),

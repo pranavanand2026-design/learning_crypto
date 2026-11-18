@@ -77,3 +77,30 @@ def test_news_endpoint_returns_linked_items(monkeypatch):
     assert resp.status_code == 200
     assert len(resp.data["results"]) == 1
     assert resp.data["results"][0]["coins"][0]["symbol"] == "BTC"
+
+
+def test_relevance_filter_needs_coin_and_crypto_context():
+    rel = lambda t: news._relevant({"title": t}, "Rain", "RAIN")
+    assert rel("Rain falls 25% to lead crypto declines")
+    assert not rel("Torrential rain floods shopping centre")
+    assert not rel("Bitcoin price slides again")
+
+
+def test_coin_headlines_fall_back_to_market(monkeypatch):
+    monkeypatch.setattr(news, "headlines", lambda: news._parse_feed("Ex", RSS))
+    monkeypatch.setattr(market, "markets", lambda **kw: ROWS)
+    monkeypatch.setattr(news, "_google_news", lambda name, symbol: [{"title": "Weather: rain all week", "url": "u"}])
+    monkeypatch.setattr(news, "_gdelt", lambda name: [])
+    out = news.coin_headlines("harmony", "Harmony", "ONE")
+    assert out["scope"] == "market"
+    assert out["results"]
+    out = news.coin_headlines("bitcoin", "Bitcoin", "BTC")
+    assert out["scope"] == "coin"
+
+
+def test_google_news_titles_drop_publisher_suffix():
+    xml = b"""<rss><channel><item><title>Rain token jumps 30% - CoinTimes</title><link>https://x/1</link>
+    <pubDate>Wed, 18 Nov 2026 02:39:52 +0000</pubDate><source url="https://ct">CoinTimes</source></item></channel></rss>"""
+    item = news._parse_feed("Google News", xml)[0]
+    assert item["title"] == "Rain token jumps 30%"
+    assert item["source"] == "CoinTimes"

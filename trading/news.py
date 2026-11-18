@@ -22,6 +22,7 @@ FEEDS = [
     ("Decrypt", "https://decrypt.co/feed"),
 ]
 GDELT = "https://api.gdeltproject.org/api/v2/doc/doc"
+GOOGLE_NEWS = "https://news.google.com/rss/search"
 MEDIA_NS = "{http://search.yahoo.com/mrss/}"
 TAG_RE = re.compile(r"<[^>]+>")
 
@@ -58,8 +59,15 @@ def _parse_feed(source, xml_bytes):
         except (TypeError, ValueError):
             published = datetime.now(dt_timezone.utc)
         summary = html.unescape(TAG_RE.sub("", _text(item, "description"))).strip()
+        publisher = item.find("source")
+        item_source = source
+        if publisher is not None and publisher.text:
+            # Aggregated feeds name the real publisher and append it to the title.
+            item_source = publisher.text.strip()
+            title = re.sub(rf"\s+-\s+{re.escape(item_source)}$", "", title)
+            summary = ""
         items.append({
-            "title": title, "url": link, "source": source, "image": _image(item),
+            "title": title, "url": link, "source": item_source, "image": _image(item),
             "summary": summary[:240], "published": published.isoformat(),
         })
     return items
@@ -150,7 +158,7 @@ def _gdelt(name):
         resp = requests.get(GDELT, params={
             "query": f'"{name}" (crypto OR token OR blockchain) sourcelang:english',
             "mode": "artlist", "format": "json", "maxrecords": 12, "sort": "datedesc", "timespan": "7d",
-        }, timeout=8)
+        }, timeout=5)
         resp.raise_for_status()
         articles = resp.json().get("articles", [])
     except (requests.RequestException, ValueError) as exc:
@@ -168,9 +176,55 @@ def _gdelt(name):
     return items
 
 
-def coin_headlines(coin_id, name, limit=8):
+def _google_news(name, symbol):
+    key = f"news:gn:{abs(hash(name))}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    query = f'"{name}" (crypto OR token OR coin OR blockchain) when:14d'
+    try:
+        resp = requests.get(GOOGLE_NEWS, params={"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"},
+                            timeout=8, headers={"User-Agent": "CryptoDash/1.0 (news reader)"})
+        resp.raise_for_status()
+        items = _parse_feed("Google News", resp.content)
+    except (requests.RequestException, ET.ParseError) as exc:
+        logger.info("Google News lookup failed for %s: %s", name, exc)
+        return []
+    items.sort(key=lambda i: i["published"], reverse=True)
+    cache.set(key, items, 1800)
+    return items
+
+
+CRYPTO_CONTEXT = re.compile(
+    r"crypto|token|coin|blockchain|defi|altcoin|airdrop|exchange|listing|staking|whale|price|rally|memecoin|web3|on-chain|\$",
+    re.IGNORECASE,
+)
+
+
+def _relevant(item, name, symbol):
+    """The headline must name the coin and read like crypto news."""
+    title = item["title"]
+    names_coin = re.search(rf"(?<!\w){re.escape(name)}(?!\w)", title, re.IGNORECASE) or (
+        len(symbol) >= 3 and symbol not in AMBIGUOUS and re.search(rf"(?<![\w$]){re.escape(symbol)}(?!\w)", title)
+    )
+    return bool(names_coin and CRYPTO_CONTEXT.search(title))
+
+
+def coin_headlines(coin_id, name, symbol="", limit=8):
+    """Headlines about a coin, never empty.
+
+    Sources in order: our feeds, Google News search, GDELT. If nothing names
+    the coin, return market-wide headlines and say so (scope="market").
+    """
     items = [i for i in tagged_headlines() if any(c["id"] == coin_id for c in i["coins"])]
-    if len(items) < 3:
-        known = {i["url"] for i in items}
-        items += [i for i in _gdelt(name) if i["url"] not in known and i["title"]]
-    return items[:limit]
+    for source in (lambda: _google_news(name, symbol), lambda: _gdelt(name)):
+        if len(items) >= limit:
+            break
+        known = {i["url"] for i in items} | {i["title"].lower() for i in items}
+        items += [
+            i for i in source()
+            if i["title"] and i["url"] not in known and i["title"].lower() not in known and _relevant(i, name, symbol)
+        ]
+    if items:
+        return {"scope": "coin", "results": items[:limit]}
+    return {"scope": "market", "results": tagged_headlines()[:limit]}

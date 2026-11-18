@@ -22,6 +22,7 @@ class Account(models.Model):
     # Benchmark: what the starting cash would be worth held in BTC.
     btc_price_at_start = models.DecimalField(max_digits=24, decimal_places=8, null=True, blank=True)
     restarts = models.PositiveIntegerField(default=0)
+    onboarded = models.BooleanField(default=False)
 
     # Personal rules the user sets for themselves. Null means "no limit".
     max_trades_per_day = models.PositiveSmallIntegerField(null=True, blank=True, default=8)

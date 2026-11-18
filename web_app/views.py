@@ -53,6 +53,13 @@ logger = logging.getLogger(__name__)
 
 PASSWORD_RESET_TOKEN_EXPIRY = timedelta(hours=1)
 
+# Display currencies (paper accounts are kept in USD and converted for display).
+SUPPORTED_CURRENCIES = [
+    "USD", "EUR", "GBP", "AUD", "CAD", "NZD", "SGD", "HKD", "JPY", "CNY",
+    "KRW", "INR", "IDR", "PHP", "THB", "MYR", "AED", "SAR", "ZAR", "NGN",
+    "BRL", "MXN", "ARS", "CHF", "SEK", "NOK", "DKK", "PLN", "TRY",
+]
+
 
 
 @api_view(["GET"])
@@ -477,13 +484,18 @@ def profile_view(request):
             # Validate currency format
             if 'preferred_currency' in update_data:
                 currency = update_data['preferred_currency'].upper()
-                if currency not in ['USD', 'EUR', 'AUD']:
+                if currency not in SUPPORTED_CURRENCIES:
                     return safe_response(
-                        {"detail": "Invalid currency. Supported: USD, EUR, AUD"}, 
+                        {"detail": f"Invalid currency. Supported: {', '.join(SUPPORTED_CURRENCIES)}"}, 
                         code=1000, 
                         status_code=400
                     )
                 update_data['preferred_currency'] = currency
+
+            if 'timezone' in update_data:
+                from zoneinfo import available_timezones
+                if update_data['timezone'] not in available_timezones():
+                    return safe_response({"detail": "Unknown time zone."}, code=1000, status_code=400)
             
             serializer = UserProfileSerializer(request.user, data=update_data, partial=True)
             if serializer.is_valid():

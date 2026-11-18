@@ -123,6 +123,19 @@ def trending_ids():
     return [c["item"]["id"] for c in data.get("coins", [])]
 
 
+def fiat_rates():
+    data = _cg("/exchange_rates", ttl=3600)
+    rates = data.get("rates", {})
+    usd = rates.get("usd", {}).get("value")
+    if not usd:
+        raise MarketUnavailable("No USD rate")
+    return {
+        code.upper(): round(r["value"] / usd, 6)
+        for code, r in rates.items()
+        if r.get("type") == "fiat"
+    }
+
+
 def search(query):
     data = _cg("/search", {"query": query}, ttl=600)
     return data.get("coins", [])[:10]

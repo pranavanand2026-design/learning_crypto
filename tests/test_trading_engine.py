@@ -218,3 +218,16 @@ def test_market_unavailable_returns_503(client, monkeypatch):
         raise market.MarketUnavailable("down")
     monkeypatch.setattr(market, "markets", boom)
     assert client.get("/api/market/").status_code == 503
+
+
+@pytest.mark.django_db
+def test_onboarding_flag(client):
+    assert client.get("/api/account/").data["onboarded"] is False
+    resp = client.put("/api/account/rules/", {"max_trades_per_day": 5, "onboarded": True}, format="json")
+    assert resp.data["onboarded"] is True
+
+
+@pytest.mark.django_db
+def test_fx_rates(client, monkeypatch):
+    monkeypatch.setattr(market, "fiat_rates", lambda: {"USD": 1.0, "EUR": 0.91})
+    assert client.get("/api/fx/").data["rates"]["EUR"] == 0.91

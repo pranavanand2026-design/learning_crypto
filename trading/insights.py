@@ -108,6 +108,12 @@ def build(account):
                 stop_breaches += 1
 
     active_days = {t.created_at.date() for t in trades}
+    today = timezone.now().date()
+    per_day = defaultdict(int)
+    for t in trades:
+        per_day[t.created_at.date()] += 1
+    daily = [{"date": (today - timedelta(days=i)).isoformat(), "trades": per_day[today - timedelta(days=i)]}
+             for i in range(13, -1, -1)]
     wins = [t for t in sells if (t.realized_pnl or 0) > 0]
     losses = [t for t in sells if (t.realized_pnl or 0) < 0]
     fees = sum((t.fee for t in trades), Decimal("0"))
@@ -119,6 +125,8 @@ def build(account):
         "sells": len(sells),
         "active_days": len(active_days),
         "trades_per_active_day": round(len(trades) / len(active_days), 1) if active_days else 0,
+        "daily": daily,
+        "max_trades_per_day": account.max_trades_per_day,
         "closed": {
             "wins": len(wins), "losses": len(losses),
             "win_rate": round(len(wins) / len(sells) * 100, 1) if sells else None,

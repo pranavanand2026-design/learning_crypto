@@ -54,6 +54,17 @@ def app_config(request):
     })
 
 
+@api_view(["GET"])
+@permission_classes([AllowAny])
+@throttle_classes([MarketThrottle])
+def fx_rates(request):
+    """Units of each fiat currency per US dollar."""
+    try:
+        return Response({"base": "USD", "rates": market.fiat_rates()})
+    except market.MarketUnavailable as exc:
+        return unavailable(exc)
+
+
 # --------------------------------------------------------------------------
 # Market
 # --------------------------------------------------------------------------
@@ -151,7 +162,7 @@ def market_news(request, coin_id):
         row = market.market_row(coin_id)
     except market.MarketUnavailable as exc:
         return unavailable(exc)
-    return Response({"results": news.coin_headlines(coin_id, row["name"])})
+    return Response(news.coin_headlines(coin_id, row["name"], row["symbol"].upper()))
 
 
 @api_view(["GET"])
@@ -242,6 +253,7 @@ def account_payload(account):
         "return_pct": (equity / float(account.starting_cash) - 1) * 100,
         "benchmark_equity": benchmark,
         "started_at": account.started_at,
+        "onboarded": account.onboarded,
         "positions": items,
         "rules": {
             "max_trades_per_day": account.max_trades_per_day,
@@ -288,6 +300,8 @@ def account_rules(request):
         if not lo <= value <= hi:
             return Response({"detail": f"{field} must be between {lo} and {hi}."}, status=400)
         setattr(account, field, int(value) if field in ("max_trades_per_day", "cooldown_minutes") else value)
+    if request.data.get("onboarded") is True:
+        account.onboarded = True
     account.save()
     return Response(account_payload(account))
 

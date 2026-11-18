@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tokens: "chart paper". Cool sage paper, ink-navy type, one highlighter. */
+:root {
+  --paper: 237 241 238;
+  --sheet: 248 250 248;
+  --ink: 20 36 48;
+  --graphite: 91 106 112;
+  --rule: 210 218 213;
+  --marker: 232 212 77;
+  --gain: 31 110 91;
+  --loss: 166 71 58;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: 15 23 28;
+    --sheet: 22 34 42;
+    --ink: 227 234 229;
+    --graphite: 141 155 161;
+    --rule: 39 53 61;
+    --marker: 217 200 74;
+    --gain: 99 181 156;
+    --loss: 220 134 118;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: 15 23 28;
+  --sheet: 22 34 42;
+  --ink: 227 234 229;
+  --graphite: 141 155 161;
+  --rule: 39 53 61;
+  --marker: 217 200 74;
+  --gain: 99 181 156;
+  --loss: 220 134 118;
+  color-scheme: dark;
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-paper text-ink font-sans text-base antialiased;
+    font-feature-settings: "ss01", "cv11";
+    min-height: 100vh;
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--marker));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection { background: rgb(var(--marker) / 0.55); color: rgb(var(--ink)); }
+  button { -webkit-tap-highlight-color: transparent; }
+  input, textarea, select { @apply bg-transparent; }
+}
+
+@layer components {
+  .num { font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.01em; }
+
+  .field {
+    @apply w-full rounded-field border border-rule bg-sheet px-3 py-2.5 text-ink placeholder:text-graphite/70
+           transition-colors duration-150 focus:border-ink focus:outline-none;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-chip px-5 py-2.5 text-sm font-medium
+           transition-[background-color,color,opacity,transform] duration-150 ease-out
+           disabled:cursor-not-allowed disabled:opacity-45 active:scale-[0.98];
+  }
+  .btn-ink { @apply btn bg-ink text-paper hover:bg-ink/90; }
+  .btn-marker { @apply btn bg-marker text-[rgb(20_36_48)] hover:brightness-95; }
+  .btn-quiet { @apply btn border border-rule text-ink hover:border-ink/50; }
+
+  .chip {
+    @apply inline-flex items-center rounded-chip border border-rule px-3 py-1 text-xs text-ink
+           transition-colors duration-150 hover:border-ink/40;
+  }
+  .chip[aria-pressed="true"], .chip[aria-checked="true"] {
+    @apply border-marker bg-marker text-[rgb(20_36_48)];
+  }
+
+  .link { @apply underline decoration-rule underline-offset-4 hover:decoration-ink; }
+
+  /* A thin rule used to separate content without boxing it in */
+  .ruled > * + * { @apply border-t border-rule; }
+}
+
+/* Price ticks: a brief highlighter wash when a live price changes */
+@keyframes tick {
+  from { background-color: rgb(var(--marker) / 0.45); }
+  to { background-color: transparent; }
+}
+.tick { animation: tick 900ms ease-out; border-radius: 4px; }
+
+/* The one orchestrated moment: an order "stamps" into the journal */
+@keyframes stamp {
+  0% { transform: scale(1.35) rotate(-8deg); opacity: 0; }
+  60% { transform: scale(0.96) rotate(-4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-4deg); opacity: 1; }
+}
+.stamp { animation: stamp 420ms cubic-bezier(.2,.8,.2,1) both; }
+
+@keyframes sheet-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sheet-up { from { transform: translateY(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sheet-in { animation: sheet-in 220ms cubic-bezier(.2,.8,.2,1) both; }
+@media (max-width: 767px) { .sheet-in { animation-name: sheet-up; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}
+
+.scroll-x { scrollbar-width: none; }
+.scroll-x::-webkit-scrollbar { display: none; }

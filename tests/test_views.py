@@ -70,7 +70,8 @@ def test_login_view_invalid_password(api_client, user):
 
 
 @pytest.mark.django_db
-def test_login_view_captcha_failure(api_client, user):
+def test_login_view_captcha_failure(api_client, user, settings):
+    settings.RECAPTCHA_REQUIRED = True
     url = reverse("login")
     with patch("web_app.views.verify_recaptcha", return_value=False):
         resp = api_client.post(url, {"email": user.email, "password": "Password123!", "captcha_token": "fake"})
@@ -169,13 +170,52 @@ def test_password_reset_request_nonexistent_user(api_client):
 
 @pytest.mark.django_db
 def test_password_reset_request_debug_mode_includes_token(api_client, user, settings):
-    """Test that in DEBUG mode, the token is included in response"""
-    settings.DEBUG = True
+    """Tokens are only echoed back when explicitly enabled for local dev"""
+    settings.EXPOSE_RESET_TOKENS = True
     url = reverse("password-reset-request")
     resp = api_client.post(url, {"email": user.email})
     assert resp.status_code == 200
     assert "token" in resp.data
     assert resp.data["token"] is not None
+
+
+@pytest.mark.django_db
+def test_password_reset_request_debug_alone_does_not_leak_token(api_client, user, settings):
+    settings.DEBUG = True
+    settings.EXPOSE_RESET_TOKENS = False
+    resp = api_client.post(reverse("password-reset-request"), {"email": user.email})
+    assert resp.status_code == 200
+    assert "token" not in resp.data
+
+
+@pytest.mark.django_db
+def test_password_reset_confirm_enforces_password_policy(api_client, user):
+    PasswordResetToken.objects.create(user=user, token="tok-weak")
+    resp = api_client.post(reverse("password-reset-confirm"), {"token": "tok-weak", "new_password": "123"})
+    assert resp.status_code == 400
+    user.refresh_from_db()
+    assert not user.check_password("123")
+
+
+@pytest.mark.django_db
+def test_watchlist_remove_rejects_other_users_items(api_client, user):
+    from web_app.models import Coin, WatchListItem, User
+    other = User.objects.create_user(email="other@example.com", username="other@example.com", password="Password123!", display_name="Other")
+    coin = Coin.objects.create(id="bitcoin", symbol="btc", name="Bitcoin")
+    item = WatchListItem.objects.create(user=other, coin=coin)
+    api_client.force_authenticate(user=user)
+    resp = api_client.delete(f"/api/watchlist/{item.id}/")
+    assert resp.status_code in (404, 500) or resp.data.get("code") != 0
+    assert WatchListItem.objects.filter(id=item.id).exists()
+
+
+@pytest.mark.django_db
+def test_login_without_captcha_when_not_configured(api_client, settings):
+    settings.RECAPTCHA_REQUIRED = False
+    User.objects.create_user(email="nocap@example.com", username="nocap@example.com", password="Password123!", display_name="N")
+    resp = api_client.post(reverse("login"), {"email": "nocap@example.com", "password": "Password123!"})
+    assert resp.status_code == 200
+    assert "access_token" in resp.data
 
 
 @pytest.mark.django_db

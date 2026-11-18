@@ -43,7 +43,7 @@ def get_current_prices(coin_ids, currency='usd'):
 
     try:
         if COINGECKO_API_KEY:
-            headers = {'x-cg-pro-api-key': COINGECKO_API_KEY}
+            headers = {'x-cg-demo-api-key': COINGECKO_API_KEY}
         else:
             headers = {}
             
@@ -51,8 +51,9 @@ def get_current_prices(coin_ids, currency='usd'):
         response.raise_for_status()
         data = response.json()
 
-        # Cache successful responses
+        # Cache successful responses (plus a long-lived copy for outages)
         cache.set(cache_key, data, CACHE_TIMEOUT)
+        cache.set(f"{cache_key}_stale", data, 24 * 60 * 60)
         return data
 
     except requests.RequestException as e:
@@ -74,7 +75,7 @@ def get_current_prices(coin_ids, currency='usd'):
             logger.error(f"Fallback price fetch failed: {str(fallback_error)}")
 
         # Return cached data even if expired as last resort
-        stale_data = cache.get(cache_key, timeout=None)
+        stale_data = cache.get(f"{cache_key}_stale")
         if stale_data:
             logger.info("Returning stale cached data")
             return stale_data

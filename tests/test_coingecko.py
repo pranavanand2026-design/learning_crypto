@@ -42,7 +42,8 @@ def test_get_current_prices_http_success(mock_get, mock_cache):
 
     result = get_current_prices("btc")
     assert result["btc"]["usd"] == 5000
-    mock_cache.set.assert_called_once()
+    # Fresh copy plus a long-lived stale copy for outages
+    assert mock_cache.set.call_count == 2
 
 
 # ---------------- get_coin_details ----------------

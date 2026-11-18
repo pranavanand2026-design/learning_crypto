@@ -250,7 +250,7 @@ def login_view(request):
         captcha_token = request.data.get("captcha_token")
         if not email or not password:
             return safe_response({"detail": "email and password required"}, code=1000, status_code=400)
-        if not verify_recaptcha(captcha_token, action="LOGIN"):
+        if settings.RECAPTCHA_REQUIRED and not verify_recaptcha(captcha_token, action="LOGIN"):
             return safe_response({"detail": "captcha verification failed"}, code=1000, status_code=400)
 
         user = authenticate(username=email, password=password)
@@ -271,7 +271,7 @@ def login_view(request):
                 key="refresh_token",
                 value=str(refresh),
                 httponly=True,
-                secure=False,  # Set True in production with HTTPS
+                secure=settings.SECURE_COOKIES,
                 samesite="Lax",
                 max_age=7*24*60*60  # 7 days
             )
@@ -298,7 +298,7 @@ def logout_view(request):
 
         response = Response({"detail": "Logged out"}, status=status.HTTP_204_NO_CONTENT)
         # Remove refresh token cookie
-        response.delete_cookie('refresh_token', path='/', samesite='Lax', secure=False)
+        response.delete_cookie('refresh_token', path='/', samesite='Lax')
         return response
 
     except Exception as e:
@@ -350,17 +350,18 @@ def password_reset_request(request):
             # Do not reveal existence
             logger.info(f"Password reset requested for non-existent account: {email}")
             response_payload = {"detail": "reset email queued if account exists"}
-            if settings.DEBUG:
+            if settings.EXPOSE_RESET_TOKENS:
                 response_payload["token"] = token
             return safe_response(response_payload)
 
         PasswordResetToken.objects.filter(user=user, used_at__isnull=True).update(used_at=timezone.now())
         PasswordResetToken.objects.create(user=user, token=token)
 
-        # TODO: integrate email delivery. For now, expose token in DEBUG for dev workflow.
+        # TODO: integrate email delivery. Tokens are only echoed back when
+        # EXPOSE_RESET_TOKENS is explicitly enabled for local development.
         logger.info(f"Issued password reset token for {email}")
         payload = {"detail": "reset email queued if account exists"}
-        if settings.DEBUG:
+        if settings.EXPOSE_RESET_TOKENS:
             payload["token"] = token
         return safe_response(payload)
     except Exception as e:
@@ -388,6 +389,10 @@ def password_reset_confirm(request):
             return safe_response({"detail": "invalid token"}, code=1000, status_code=status.HTTP_400_BAD_REQUEST)
 
         user = reset_record.user
+        try:
+            validate_password(new_password, user=user)
+        except ValidationError as exc:
+            return safe_response({"detail": list(exc.messages)}, code=1000, status_code=status.HTTP_400_BAD_REQUEST)
         user.set_password(new_password)
         user.save(update_fields=["password"])
         reset_record.mark_used()
@@ -555,7 +560,7 @@ def price_history(request):
             return safe_response({"detail": "coin_id, start, and end required"}, code=1000, status_code=status.HTTP_400_BAD_REQUEST)
 
         prices = PriceCache.objects.filter(
-            coin__coin_id=coin_id,
+            coin__id=coin_id,
             price_date__range=(start, end)
         ).order_by("-price_date")[:limit]
 
@@ -1162,7 +1167,8 @@ class CoinListView(generics.ListAPIView):
 class CoinDetailView(generics.RetrieveAPIView):
     queryset = Coin.objects.all()
     serializer_class = CoinDetailSerializer
-    lookup_field = "coin_id"
+    lookup_field = "id"
+    lookup_url_kwarg = "coin_id"
     permission_classes = [AllowAny]
 
 
@@ -1206,11 +1212,14 @@ class WatchlistView(generics.ListCreateAPIView):
 
 
 class WatchlistRemoveView(generics.DestroyAPIView):
-    queryset = WatchListItem.objects.all()
     serializer_class = WatchlistSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = "id"
     lookup_url_kwarg = "watchlist_id"
+
+    def get_queryset(self):
+        # Users may only remove their own watchlist entries.
+        return WatchListItem.objects.filter(user=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
         try:
@@ -1402,13 +1411,12 @@ class SimulationDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class SimulationPositionsView(generics.ListAPIView):
-    queryset = Holding.objects.all()
-    serializer_class = TransactionSerializer
+    serializer_class = PortfolioHoldingSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         sim_id = self.kwargs.get("sim_id")
-        return Holding.objects.filter(simulation__id=sim_id)
+        return Holding.objects.filter(simulation__id=sim_id, user=self.request.user)
 
 
 @api_view(["POST"])

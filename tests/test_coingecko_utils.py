@@ -72,8 +72,8 @@ def test_get_current_prices_returns_none(monkeypatch):
 
 def test_get_current_prices_returns_stale(monkeypatch):
     class DummyCache:
-        def get(self, key, default=None, **kwargs):
-            if kwargs.get("timeout") is None:
+        def get(self, key, default=None):
+            if key.endswith("_stale"):
                 return {"btc": {"usd": 99}}
             return None
 

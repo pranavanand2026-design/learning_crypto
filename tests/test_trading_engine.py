@@ -151,7 +151,9 @@ def test_invalid_plan_values_rejected(user):
     with pytest.raises(engine.OrderRejected):
         buy(user, conviction=75)
     with pytest.raises(engine.OrderRejected):
-        buy(user, horizon_days=3)
+        buy(user, horizon_days=120)
+    trade, _ = buy(user, horizon_days=3)
+    assert trade.horizon_days == 3
     with pytest.raises(engine.OrderRejected):
         buy(user, stop_pct=95)
 

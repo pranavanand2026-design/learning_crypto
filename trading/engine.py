@@ -12,7 +12,7 @@ from . import market
 from .models import Account, Position, Trade
 
 CONVICTION_CHOICES = (50, 60, 70, 80, 90)
-HORIZON_CHOICES = (1, 7, 30)
+HORIZON_RANGE = (1, 90)  # days
 
 
 class OrderRejected(Exception):
@@ -80,8 +80,8 @@ def _clean_plan(plan):
     horizon = plan.get("horizon_days")
     if horizon is not None:
         horizon = int(horizon)
-        if horizon not in HORIZON_CHOICES:
-            raise OrderRejected("invalid", "Horizon must be 1, 7 or 30 days.")
+        if not HORIZON_RANGE[0] <= horizon <= HORIZON_RANGE[1]:
+            raise OrderRejected("invalid", "Horizon must be between 1 and 90 days.")
 
     def pct(name, lo, hi):
         value = plan.get(name)

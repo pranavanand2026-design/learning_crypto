@@ -75,7 +75,7 @@ export default function HeroArt() {
           src="/hero.webp"
           alt=""
           onError={() => setPhoto(false)}
-          className="hero-photo absolute inset-0 h-full w-full object-cover object-[78%_center] opacity-35 md:opacity-100"
+          className="hero-photo absolute inset-0 h-full w-full object-cover object-[85%_bottom] opacity-35 md:opacity-100"
         />
         {/* keep the text side calm and blend the photo into the band */}
         <div className="absolute inset-0 bg-gradient-to-r from-floor via-floor/60 to-transparent md:via-floor/10" />

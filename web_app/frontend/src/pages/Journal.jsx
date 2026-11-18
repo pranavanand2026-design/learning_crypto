@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useApi } from "../lib/hooks";
 import { day, money, qty, time } from "../lib/format";
 import { Loading, Problem } from "../components/States";
+import Tour from "../components/Tour";
+import { horizonPhrase } from "../lib/plan";
 
-const HORIZON = { 1: "by the next day", 7: "within a week", 30: "within a month" };
 const PAGE = 12;
 
 /** A rubber stamp in the margin: how the call turned out. */
@@ -21,22 +22,21 @@ function Verdict({ t }) {
   );
 }
 
-function Entry({ t, onNote }) {
+function NoteComposer({ trade, onNote, tour }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const bought = t.side === "buy";
+  const area = useRef(null);
 
-  const asides = [];
-  if (t.heat !== null && t.heat >= 65) asides.push(`the market was running hot (heat ${t.heat})`);
-  if (t.minutes_since_loss !== null && t.minutes_since_loss <= 30) asides.push(`${t.minutes_since_loss} minutes after a loss`);
-  if (t.mood) asides.push(`feeling ${t.mood}`);
+  useEffect(() => {
+    if (open) area.current?.focus();
+  }, [open]);
 
-  async function save(e) {
-    e.preventDefault();
+  async function save() {
+    if (!text.trim() || busy) return;
     setBusy(true);
     try {
-      onNote(await api(`/journal/${t.id}/notes/`, { method: "POST", body: { text } }));
+      onNote(await api(`/journal/${trade.id}/notes/`, { method: "POST", body: { text: text.trim() } }));
       setText("");
       setOpen(false);
     } finally {
@@ -44,57 +44,101 @@ function Entry({ t, onNote }) {
     }
   }
 
+  if (!open) {
+    return (
+      <button
+        data-tour={tour ? "note" : undefined}
+        onClick={() => setOpen(true)}
+        className="group inline-flex h-8 items-center gap-2 font-sans text-sm text-graphite hover:text-ink"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" />
+        </svg>
+        <span className="underline decoration-transparent underline-offset-4 group-hover:decoration-marker">Add a note</span>
+      </button>
+    );
+  }
+
   return (
-    <article className="relative grid grid-cols-[4.5rem_1fr] gap-x-6 py-6 sm:grid-cols-[6rem_1fr]">
-      <div className="pt-1 text-right">
-        <time className="num block text-xs text-graphite" dateTime={t.created_at}>
+    <div className="border-l-2 border-marker pl-3">
+      <textarea
+        ref={area}
+        rows={2}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          e.target.style.height = "auto";
+          e.target.style.height = `${e.target.scrollHeight}px`;
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save();
+          if (e.key === "Escape") setOpen(false);
+        }}
+        placeholder="Looking back…"
+        aria-label={`Note on ${trade.name}`}
+        className="block w-full resize-none bg-transparent font-serif text-md leading-8 outline-none placeholder:italic placeholder:text-graphite/60"
+      />
+      <div className="flex h-8 items-center gap-3 font-sans text-sm">
+        <button onClick={save} disabled={!text.trim() || busy} className="btn-ink !px-4 !py-1.5 !text-xs">
+          {busy ? "Saving…" : "Save note"}
+        </button>
+        <button onClick={() => setOpen(false)} className="text-graphite hover:text-ink">
+          Cancel
+        </button>
+        <span className="ml-auto hidden text-xs text-graphite sm:inline">Ctrl or ⌘ + Enter to save</span>
+      </div>
+    </div>
+  );
+}
+
+function Entry({ t, onNote, first }) {
+  const bought = t.side === "buy";
+  const context = [];
+  if (t.mood) context.push(`I was feeling ${t.mood}.`);
+  if (t.heat !== null && t.heat >= 65) context.push(`${t.name} was running hot.`);
+  if (t.minutes_since_loss !== null && t.minutes_since_loss <= 30) context.push(`This came ${t.minutes_since_loss} minutes after a losing sale.`);
+
+  return (
+    <article className="relative grid grid-cols-[4.5rem_1fr] gap-x-6 pt-8 sm:grid-cols-[6rem_1fr]">
+      <div className="text-right">
+        <time className="num block text-xs leading-8 text-graphite" dateTime={t.created_at}>
           {time(t.created_at)}
         </time>
-        <div className="mt-3">
+        <div className="mt-1">
           <Verdict t={t} />
         </div>
       </div>
-      <div className="min-w-0 font-serif text-md leading-relaxed">
+      <div className="min-w-0 font-serif text-md leading-8">
         <p>
-          {bought ? "Bought" : "Sold"} <span className="num font-sans text-base">{qty(t.quantity)}</span>{" "}
+          {bought ? "Bought" : "Sold"} <span className="num">{qty(t.quantity)}</span>{" "}
           <Link to={`/coin/${t.coin_id}`} className="underline decoration-marker decoration-2 underline-offset-4">
             {t.name}
           </Link>{" "}
-          at <span className="num font-sans text-base">{money(t.price)}</span>
+          at <span className="num">{money(t.price)}</span>
           {t.realized_pnl !== null && (
             <>
-              , <span className={`num font-sans text-base ${t.realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>{money(t.realized_pnl, { sign: true, digits: 2 })}</span>
+              {" "}for <span className={`num ${t.realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>{t.realized_pnl >= 0 ? "a gain" : "a loss"} of {money(Math.abs(t.realized_pnl), { digits: 2 })}</span>
             </>
           )}
-          .{bought && t.conviction ? ` I was ${t.conviction}% sure it would rise ${HORIZON[t.horizon_days] || ""}.` : ""}
+          .
+          {bought && t.conviction ? ` I was ${t.conviction}% sure it would rise ${horizonPhrase(t.horizon_days)}` : ""}
+          {bought && t.conviction && t.target_pct ? `, by about ${Math.round(t.target_pct)}%.` : bought && t.conviction ? "." : ""}
         </p>
-        {t.thesis && <p className="mt-1 italic">“{t.thesis}”</p>}
-        {asides.length > 0 && <p className="mt-1 text-base text-graphite">Placed {asides.join(", ")}.</p>}
+        {t.thesis && <p className="italic">“{t.thesis}”</p>}
+        {context.length > 0 && <p className="text-graphite">{context.join(" ")}</p>}
         {t.outcome_correct !== null && t.outcome_price && (
-          <p className="mt-1 text-base text-graphite">
-            It was {money(t.outcome_price)} when checked.
-          </p>
+          <p className="text-graphite">When checked, it was at {money(t.outcome_price)}.</p>
         )}
 
         {t.notes.map((n) => (
-          <p key={n.created_at} className="mt-3 border-l-2 border-marker pl-3 text-base">
+          <p key={n.created_at} className="border-l-2 border-marker pl-3">
             {n.text}
             <span className="ml-2 font-sans text-xs text-graphite">{day(n.created_at)}</span>
           </p>
         ))}
 
-        {open ? (
-          <form onSubmit={save} className="mt-3 flex gap-2 font-sans">
-            <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="Looking back…" className="field font-serif" aria-label="Note" />
-            <button className="btn-ink" disabled={!text.trim() || busy}>
-              Add
-            </button>
-          </form>
-        ) : (
-          <button onClick={() => setOpen(true)} className="mt-2 font-sans text-sm text-graphite hover:text-ink">
-            Add a note
-          </button>
-        )}
+        <NoteComposer trade={t} onNote={onNote} tour={first} />
       </div>
     </article>
   );
@@ -119,9 +163,11 @@ export default function Journal() {
 
   return (
     <div className="mx-auto max-w-3xl">
+      <Tour id="journal" ready={Boolean(journal.data)} />
       {/* The page: ruled lines and a margin, like a trading notebook */}
       <div
-        className="relative overflow-hidden rounded-[4px_18px_18px_4px] bg-sheet px-5 pb-12 pt-10 shadow-[0_1px_0_rgb(var(--rule)),0_24px_48px_-24px_rgb(var(--ink)/0.25)] sm:px-10"
+        data-tour="page"
+        className="relative overflow-hidden rounded-[4px_18px_18px_4px] bg-sheet px-5 pb-16 pt-8 shadow-[0_1px_0_rgb(var(--rule)),0_24px_48px_-24px_rgb(var(--ink)/0.25)] sm:px-10"
         style={{
           backgroundImage:
             "repeating-linear-gradient(to bottom, transparent 0, transparent calc(2rem - 1px), rgb(var(--rule) / 0.7) calc(2rem - 1px), rgb(var(--rule) / 0.7) 2rem)",
@@ -129,9 +175,9 @@ export default function Journal() {
       >
         <span className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-ink/10 to-transparent" aria-hidden />
         <span className="absolute inset-y-0 left-[6.5rem] w-px bg-loss/40 sm:left-[9.25rem]" aria-hidden />
-        <header className="mb-8 pl-[6rem] sm:pl-[7.5rem]">
-          <h1 className="font-serif text-3xl italic tracking-tight">My trading journal</h1>
-          <p className="mt-1 text-sm text-graphite">
+        <header className="pl-[6rem] sm:pl-[7.5rem]">
+          <h1 className="font-serif text-3xl italic leading-[4rem] tracking-tight">My trading journal</h1>
+          <p className="text-sm leading-8 text-graphite">
             {all.length ? `${all.length} entr${all.length === 1 ? "y" : "ies"}. Nothing here can be erased; add what you learn.` : ""}
           </p>
         </header>
@@ -151,10 +197,10 @@ export default function Journal() {
           </div>
         ) : (
           days.map((g) => (
-            <section key={g.day} className="mt-6">
-              <h2 className="font-serif text-lg font-medium pl-[6rem] sm:pl-[7.5rem]">{g.day}</h2>
+            <section key={g.day} className="mt-8">
+              <h2 className="pl-[6rem] font-serif text-lg font-medium leading-8 sm:pl-[7.5rem]">{g.day}</h2>
               {g.trades.map((t) => (
-                <Entry key={t.id} t={t} onNote={replace} />
+                <Entry key={t.id} t={t} onNote={replace} first={t.id === all[0]?.id} />
               ))}
             </section>
           ))

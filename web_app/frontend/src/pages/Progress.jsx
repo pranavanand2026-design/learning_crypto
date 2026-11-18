@@ -3,6 +3,8 @@ import { useApi } from "../lib/hooks";
 import { day, money, pct, tone } from "../lib/format";
 import { Milestones, Activity } from "../components/Training";
 import { Loading, Problem } from "../components/States";
+import { Band, Card, PageHeader } from "../components/Page";
+import Tour from "../components/Tour";
 
 function Calibration({ cal }) {
   const W = 480;
@@ -23,10 +25,9 @@ function Calibration({ cal }) {
   }
 
   return (
-    <section className="grid gap-10 lg:grid-cols-2 lg:items-center">
+    <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
       <div className="max-w-md">
-        <h2 className="text-sm text-graphite">Confidence</h2>
-        <p className="mt-2 text-xl font-light leading-snug tracking-tight">{headline}</p>
+        <p className="text-xl font-light leading-snug tracking-tight">{headline}</p>
         {cal.gap !== null && cal.resolved >= 3 && (
           <p className="mt-3 text-graphite">
             {Math.abs(cal.gap) < 8
@@ -69,16 +70,22 @@ function Calibration({ cal }) {
           How sure you said you were
         </text>
       </svg>
-    </section>
+    </div>
   );
 }
 
 function Locked({ title, unlock }) {
   return (
-    <section className="rounded-sheet border border-dashed border-rule px-5 py-6">
-      <h2 className="text-sm text-graphite">{title}</h2>
-      <p className="mt-2 text-graphite">{unlock}</p>
-    </section>
+    <div className="flex h-full flex-col">
+      <h3 className="text-sm text-graphite">{title}</h3>
+      <p className="mt-2 flex items-center gap-2 text-graphite">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <rect x="5" y="11" width="14" height="10" rx="2" />
+          <path d="M8 11V7a4 4 0 018 0v4" />
+        </svg>
+        {unlock}
+      </p>
+    </div>
   );
 }
 
@@ -88,8 +95,8 @@ function Compare({ title, sentence, rows, unlock }) {
   const vals = rows.map((r) => Math.abs(r.value ?? 0));
   const max = Math.max(...vals, 1);
   return (
-    <section>
-      <h2 className="text-sm text-graphite">{title}</h2>
+    <div>
+      <h3 className="text-sm text-graphite">{title}</h3>
       <p className="mt-2 max-w-md text-md leading-snug">{sentence}</p>
       <div className="mt-5 space-y-2.5">
         {rows.map((r) => (
@@ -110,7 +117,7 @@ function Compare({ title, sentence, rows, unlock }) {
           </div>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -129,107 +136,119 @@ export default function Progress() {
   if (loading && !data) return <Loading />;
   if (error && !data) return <Problem error={error} onRetry={reload} />;
 
-  if (!data.trades) {
-    return (
-      <div className="max-w-xl py-10">
-        <h1 className="text-2xl font-light tracking-tight">Progress</h1>
-        <p className="mt-4 text-md text-graphite">
-          This fills in as you trade: how well your confidence holds up, how you do when markets run hot, and what your habits cost.
-        </p>
-        <Link to="/" className="btn-ink mt-8">
-          Go to the market
-        </Link>
-      </div>
-    );
-  }
-
   const { closed, costs, heat, after_loss: afterLoss, plan, mood } = data;
   const heatSentence =
-    heat.hot_buys && heat.calm_buys && heat.hot_return !== null && heat.calm_return !== null
-      ? heat.hot_return < heat.calm_return
-        ? "Your buys into hot markets have done worse than your calmer picks."
-        : "So far your buys into hot markets have held up better than calm ones."
-      : "Compare how you do buying into hype against calmer markets.";
+    heat.hot_return < heat.calm_return
+      ? "Your buys into hot markets have done worse than your calmer picks."
+      : "So far your buys into hot markets have held up better than calm ones.";
   const lossSentence =
     afterLoss.buys > 0
-      ? `${afterLoss.buys} of your buys came within 30 minutes of a losing exit.`
+      ? `${afterLoss.buys} of your buys came within 30 minutes of a losing sale.`
       : "You haven't jumped straight back in after a loss.";
 
   return (
-    <div className="space-y-16">
-      <div className="flex items-end justify-between">
-        <h1 className="text-2xl font-light tracking-tight">Progress</h1>
-        <span className="text-sm text-graphite">
-          {data.trades} trade{data.trades === 1 ? "" : "s"} over {data.active_days} day{data.active_days === 1 ? "" : "s"}
-        </span>
-      </div>
+    <div className="space-y-14">
+      <Tour id="progress" ready={Boolean(data)} />
+      <PageHeader
+        title="Progress"
+        sub="How your decisions are holding up, not just your balance."
+        aside={data.trades ? `${data.trades} trade${data.trades === 1 ? "" : "s"} over ${data.active_days} day${data.active_days === 1 ? "" : "s"}` : null}
+      />
 
-      <Milestones data={data} />
+      <Band title="Milestones" sub="Habits worth building. Each one fills in as you go." tour="milestones">
+        <Card>
+          <Milestones data={data} />
+        </Card>
+      </Band>
 
-      <Calibration cal={data.calibration} />
+      <Band title="Judgment" sub="Does your confidence match what actually happens?" tour="judgment">
+        <Card>
+          <Calibration cal={data.calibration} />
+        </Card>
+      </Band>
 
-      <Activity daily={data.daily} cap={data.max_trades_per_day} />
-
-      <section className="grid grid-cols-2 gap-x-8 gap-y-10 border-y border-rule py-10 md:grid-cols-4">
-        <Figure
-          label="Winning exits"
-          value={closed.win_rate === null ? "–" : pct(closed.win_rate, { sign: false, digits: 0 })}
-          hint={closed.wins + closed.losses ? `${closed.wins} of ${closed.wins + closed.losses}` : "After your first sale"}
-        />
-        <Figure
-          label="Average win"
-          value={closed.avg_win === null ? "–" : money(closed.avg_win, { digits: 2 })}
-          hint={closed.avg_loss !== null ? `Average loss ${money(closed.avg_loss, { digits: 2 })}` : null}
-        />
-        <Figure label="Trades per active day" value={data.trades_per_active_day} />
-        <Figure label="Paid in costs" value={money(costs.fees + costs.slippage, { digits: 2 })} hint={`${money(costs.fees, { digits: 2 })} fees, ${money(costs.slippage, { digits: 2 })} slippage`} />
-      </section>
-
-      <div className="grid gap-16 lg:grid-cols-2">
-        <Compare
-          title="Hype"
-          unlock="Unlocks once you've bought into both hot and calm markets."
-          sentence={heatSentence}
-          rows={[
-            { label: "Into the heat", n: heat.hot_buys, value: heat.hot_return },
-            { label: "Calm markets", n: heat.calm_buys, value: heat.calm_return },
-          ]}
-        />
-        <Compare
-          title="After a loss"
-          unlock="Unlocks after your first losing exit."
-          sentence={lossSentence}
-          rows={[
-            { label: "Right after", n: afterLoss.buys, value: afterLoss.return },
-            { label: "Every other buy", n: data.buys - afterLoss.buys, value: afterLoss.others_return },
-          ]}
-        />
-        {mood.length > 0 ? (
-          <Compare
-            title="Mood"
-            sentence="How your buys have done, by how you felt when you placed them."
-            rows={mood.map((m) => ({ label: m.mood[0].toUpperCase() + m.mood.slice(1), n: m.buys, value: m.return }))}
-          />
-        ) : (
-          <Locked title="Mood" unlock="Note how you feel when you buy, and this shows which moods serve you." />
-        )}
-        <section>
-          <h2 className="text-sm text-graphite">Exit plans</h2>
-          <p className="mt-2 max-w-md text-md leading-snug">
-            {plan.stop_rate === null
-              ? "Set a stop when you buy to see how well you stick to it."
-              : `You set a stop on ${Math.round(plan.stop_rate)}% of your buys.`}
-          </p>
-          {plan.stop_breaches > 0 && (
-            <p className="mt-3 text-graphite">
-              {plan.stop_breaches} exit{plan.stop_breaches > 1 ? "s" : ""} came well below the stop you planned.
+      <Band title="Habits" sub="Patterns in when and how you trade." tour="habits">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="lg:col-span-2">
+            <Activity daily={data.daily} cap={data.max_trades_per_day} />
+          </Card>
+          <Card>
+            <Compare
+              title="Hype"
+              unlock="Unlocks once you've bought into both hot and calm markets."
+              sentence={heatSentence}
+              rows={[
+                { label: "Into the heat", n: heat.hot_buys, value: heat.hot_return },
+                { label: "Calm markets", n: heat.calm_buys, value: heat.calm_return },
+              ]}
+            />
+          </Card>
+          <Card>
+            <Compare
+              title="After a loss"
+              unlock="Unlocks after your first losing sale."
+              sentence={lossSentence}
+              rows={[
+                { label: "Right after", n: afterLoss.buys, value: afterLoss.return },
+                { label: "Every other buy", n: data.buys - afterLoss.buys, value: afterLoss.others_return },
+              ]}
+            />
+          </Card>
+          <Card>
+            {mood.length > 0 ? (
+              <Compare
+                title="Mood"
+                sentence="How your buys have done, by how you felt when you placed them."
+                rows={mood.map((m) => ({ label: m.mood[0].toUpperCase() + m.mood.slice(1), n: m.buys, value: m.return }))}
+              />
+            ) : (
+              <Locked title="Mood" unlock="Note how you feel when you buy, and this shows which moods serve you." />
+            )}
+          </Card>
+          <Card>
+            <h3 className="text-sm text-graphite">Exit plans</h3>
+            <p className="mt-2 text-md leading-snug">
+              {plan.stop_rate === null ? "Set a stop when you buy to see how well you stick to it." : `You planned an exit on ${Math.round(plan.stop_rate)}% of your buys.`}
             </p>
-          )}
-        </section>
-      </div>
-      <p className="text-sm text-graphite">
-        Returns use each buy's price when its call was checked, or today's price if it's still open.
-      </p>
+            {plan.stop_breaches > 0 && (
+              <p className="mt-3 text-graphite">
+                {plan.stop_breaches} sale{plan.stop_breaches > 1 ? "s" : ""} came well below the stop you planned.
+              </p>
+            )}
+          </Card>
+        </div>
+      </Band>
+
+      <Band title="Results" sub="Returns use each buy's price when its call was checked, or today's price while it's open.">
+        <Card>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-8 md:grid-cols-4">
+            <Figure
+              label="Winning sales"
+              value={closed.win_rate === null ? "–" : pct(closed.win_rate, { sign: false, digits: 0 })}
+              hint={closed.wins + closed.losses ? `${closed.wins} of ${closed.wins + closed.losses}` : "After your first sale"}
+            />
+            <Figure
+              label="Average win"
+              value={closed.avg_win === null ? "–" : money(closed.avg_win, { digits: 2 })}
+              hint={closed.avg_loss !== null ? `Average loss ${money(closed.avg_loss, { digits: 2 })}` : null}
+            />
+            <Figure label="Trades per active day" value={data.trades_per_active_day || "–"} />
+            <Figure
+              label="Paid in costs"
+              value={money(costs.fees + costs.slippage, { digits: 2 })}
+              hint={`${money(costs.fees, { digits: 2 })} fees, ${money(costs.slippage, { digits: 2 })} slippage`}
+            />
+          </div>
+        </Card>
+      </Band>
+
+      {!data.trades && (
+        <div className="text-center">
+          <Link to="/" className="btn-ink">
+            Make your first trade
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

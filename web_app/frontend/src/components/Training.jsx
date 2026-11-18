@@ -42,14 +42,11 @@ export function Milestones({ data }) {
   });
   const done = items.filter((i) => i.done).length;
   return (
-    <section>
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm text-graphite">Milestones</h2>
-        <span className="num text-sm text-graphite">
-          {done} of {items.length}
-        </span>
-      </div>
-      <ul className="mt-4 grid grid-cols-3 gap-y-6 sm:grid-cols-6">
+    <div>
+      <p className="num text-sm text-graphite">
+        {done} of {items.length} reached
+      </p>
+      <ul className="mt-5 grid grid-cols-3 gap-y-6 sm:grid-cols-6">
         {items.map((m) => (
           <li key={m.id} className="flex flex-col items-center text-center">
             <Medal done={m.done} progress={m.v / m.goal} />
@@ -62,7 +59,7 @@ export function Milestones({ data }) {
           </li>
         ))}
       </ul>
-    </section>
+    </div>
   );
 }
 
@@ -72,10 +69,14 @@ export function Activity({ daily, cap }) {
   const max = Math.max(cap || 0, ...daily.map((d) => d.trades), 4);
   const over = daily.filter((d) => cap && d.trades > cap).length;
   return (
-    <section>
-      <h2 className="text-sm text-graphite">Rhythm</h2>
+    <div>
+      <h3 className="text-sm text-graphite">Rhythm</h3>
       <p className="mt-2 max-w-md text-md leading-snug">
-        {over ? `You went over your daily cap on ${over} day${over > 1 ? "s" : ""} in the last two weeks.` : "Two weeks of trading, and you stayed within your daily cap."}
+        {over
+          ? `You went over your daily cap on ${over} day${over > 1 ? "s" : ""} in the last two weeks.`
+          : daily.some((d) => d.trades)
+            ? "You've stayed within your daily cap for the last two weeks."
+            : "No trades in the last two weeks yet."}
       </p>
       <div className="relative mt-6 flex h-32 items-end gap-1.5 sm:gap-2.5">
         {cap ? (
@@ -96,6 +97,6 @@ export function Activity({ daily, cap }) {
         <span>{day(daily[0].date)}</span>
         <span>Today</span>
       </div>
-    </section>
+    </div>
   );
 }

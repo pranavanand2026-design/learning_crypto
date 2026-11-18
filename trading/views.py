@@ -396,3 +396,10 @@ def trade_note(request, trade_id):
         return Response({"detail": "Write something first."}, status=400)
     TradeNote.objects.create(trade=trade, text=text[:2000])
     return Response(trade_payload(trade), status=201)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def progress_view(request):
+    from . import insights
+    return Response(insights.build(engine.get_account(request.user)))

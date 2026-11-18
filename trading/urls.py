@@ -16,5 +16,6 @@ urlpatterns = [
     path("quote/", views.quote_view, name="quote"),
     path("orders/", views.orders_view, name="orders"),
     path("journal/", views.journal_view, name="journal"),
+    path("progress/", views.progress_view, name="progress"),
     path("journal/<uuid:trade_id>/notes/", views.trade_note, name="trade-note"),
 ]

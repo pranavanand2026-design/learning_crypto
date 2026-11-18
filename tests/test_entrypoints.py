@@ -310,3 +310,18 @@ def test_run_script_keyboard_interrupt_windows(monkeypatch, tmp_path):
     _reload_module("run")
 
     assert backend.signal is not None
+
+
+@pytest.mark.django_db
+def test_spa_catch_all_serves_index(client, settings, tmp_path):
+    (tmp_path / "index.html").write_text("<div id=root></div>")
+    settings.FRONTEND_DIST = tmp_path
+    resp = client.get("/coin/bitcoin")
+    assert resp.status_code == 200
+    assert b"root" in resp.content
+
+
+@pytest.mark.django_db
+def test_spa_reports_missing_build(client, settings, tmp_path):
+    settings.FRONTEND_DIST = tmp_path / "missing"
+    assert client.get("/portfolio").status_code == 503

@@ -1,45 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { money, pct, qty, until } from "../lib/format";
+import { currencySymbol, day, money, pct, qty, toDisplay, toUsd, until } from "../lib/format";
 import { useNow } from "../lib/hooks";
 import { useAccount } from "../state/account";
 import CoinMark from "./CoinMark";
+import { Pills, Steps } from "./Pick";
 
-const CONVICTION = [50, 60, 70, 80, 90];
 const HORIZONS = [
-  { days: 1, label: "a day" },
-  { days: 7, label: "a week" },
-  { days: 30, label: "a month" },
+  { value: 1, label: "Tomorrow" },
+  { value: 7, label: "In a week" },
+  { value: 30, label: "In a month" },
 ];
-const STOPS = [5, 10, 20];
-const TARGETS = [10, 25, 50];
-const MOODS = ["calm", "curious", "excited", "anxious", "frustrated"];
+const CONVICTION = [50, 60, 70, 80, 90].map((c) => ({ value: c, label: `${c}%` }));
+const STOPS = [5, 10, 20].map((s) => ({ value: s, label: `−${s}%` }));
+const TARGETS = [10, 25, 50].map((t) => ({ value: t, label: `+${t}%` }));
+const MOODS = ["calm", "curious", "excited", "anxious", "frustrated"].map((m) => ({ value: m, label: m[0].toUpperCase() + m.slice(1) }));
 const HOT_PAUSE_MS = 20000;
 
-function Choice({ options, value, onChange, render, label }) {
-  return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
-      {options.map((o) => {
-        const v = typeof o === "object" ? o.value : o;
-        return (
-          <button
-            key={String(v)}
-            type="button"
-            role="radio"
-            aria-checked={value === v}
-            className="chip"
-            onClick={() => onChange(value === v ? null : v)}
-          >
-            {render ? render(o) : String(o)}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Row({ label, children, strong }) {
+function Line({ label, children, strong }) {
   return (
     <div className={`flex items-baseline justify-between gap-4 py-1.5 ${strong ? "font-medium" : ""}`}>
       <dt className="text-graphite">{label}</dt>
@@ -48,15 +27,28 @@ function Row({ label, children, strong }) {
   );
 }
 
+function Section({ title, children, hint }) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h3 className="text-md">{title}</h3>
+        {hint && <p className="mt-0.5 text-sm text-graphite">{hint}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export default function Ticket({ coin, initialSide = "buy", onClose, onFilled }) {
   const { data: account, reload: reloadAccount } = useAccount();
   const position = account?.positions.find((p) => p.coin_id === coin.id);
   const [side, setSide] = useState(position ? initialSide : "buy");
+  const [step, setStep] = useState(0);
   const [amount, setAmount] = useState("");
   const [sellShare, setSellShare] = useState(null);
   const [thesis, setThesis] = useState("");
-  const [conviction, setConviction] = useState(null);
   const [horizon, setHorizon] = useState(7);
+  const [conviction, setConviction] = useState(null);
   const [stop, setStop] = useState(null);
   const [target, setTarget] = useState(null);
   const [mood, setMood] = useState(null);
@@ -69,20 +61,22 @@ export default function Ticket({ coin, initialSide = "buy", onClose, onFilled })
   const panel = useRef(null);
   const now = useNow(500);
 
-  const hot = side === "buy" && coin.heat?.level === "hot";
+  const buying = side === "buy";
+  const hot = buying && coin.heat?.level === "hot";
   const pauseLeft = hot ? Math.max(0, Math.ceil((openedAt.current + HOT_PAUSE_MS - now) / 1000)) : 0;
+  const stepNames = buying ? ["Amount", "Reason", "Plan", "Review"] : ["Amount", "Review"];
+  const last = stepNames.length - 1;
 
   const order = useMemo(() => {
-    if (side === "buy") {
+    if (buying) {
       const n = Number(amount);
-      return n > 0 ? { notional: n } : null;
+      return n > 0 ? { notional: toUsd(n).toFixed(2) } : null;
     }
     if (!position) return null;
-    const q = sellShare ? position.quantity * sellShare : Number(amount) / (coin.price || 1);
+    const q = sellShare ? position.quantity * sellShare : 0;
     return q > 0 ? { quantity: Math.min(q, position.quantity).toFixed(12) } : null;
-  }, [side, amount, sellShare, position, coin.price]);
+  }, [buying, amount, sellShare, position]);
 
-  // Live quote, refreshed while the ticket is open.
   useEffect(() => {
     setQuote(null);
     setQuoteError(null);
@@ -104,29 +98,28 @@ export default function Ticket({ coin, initialSide = "buy", onClose, onFilled })
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
-    panel.current?.querySelector("input,textarea,button")?.focus();
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const blocked = quote?.blocked || (side === "buy" ? account?.today?.blocked : null);
-  const overSize =
-    side === "buy" && quote?.position_pct && account?.rules?.max_position_pct && quote.position_pct > account.rules.max_position_pct;
-  const missing =
-    side === "buy"
-      ? !order
-        ? "Enter an amount"
-        : thesis.trim().length < 8
-          ? "Write why you're buying"
-          : !conviction
-            ? "Choose how sure you are"
-            : null
-      : !order
-        ? "Choose how much to sell"
-        : null;
+  useEffect(() => {
+    panel.current?.querySelector("[data-autofocus]")?.focus();
+  }, [step, side]);
 
-  async function submit(e) {
-    e.preventDefault();
-    if (missing || blocked || pauseLeft || busy) return;
+  const blocked = quote?.blocked || (buying ? account?.today?.blocked : null);
+  const overSize = buying && quote?.position_pct && account?.rules?.max_position_pct && quote.position_pct > account.rules.max_position_pct;
+
+  const stepReady = [
+    Boolean(order && quote && !quoteError),
+    thesis.trim().length >= 8 && Boolean(conviction),
+    true,
+    true,
+  ];
+  const nextLabel = buying
+    ? [!order ? "Enter an amount" : "Next", thesis.trim().length < 8 ? "Write a sentence first" : !conviction ? "Choose how sure you are" : "Next", "Review", null][step]
+    : [!order ? "Choose how much" : "Review", null][step];
+
+  async function submit() {
+    if (blocked || pauseLeft || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -139,7 +132,7 @@ export default function Ticket({ coin, initialSide = "buy", onClose, onFilled })
           thesis,
           mood,
           heat: coin.heat?.score,
-          ...(side === "buy" ? { conviction, horizon_days: horizon, stop_pct: stop, target_pct: target } : {}),
+          ...(buying ? { conviction, horizon_days: horizon, stop_pct: stop, target_pct: target } : {}),
         },
       });
       setFilled(trade);
@@ -152,19 +145,22 @@ export default function Ticket({ coin, initialSide = "buy", onClose, onFilled })
     }
   }
 
-  const cash = account?.cash ?? 0;
+  const cash = toDisplay(account?.cash ?? 0);
+  const horizonLabel = HORIZONS.find((h) => h.value === horizon)?.label.toLowerCase();
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-end md:items-stretch" role="dialog" aria-modal="true" aria-label={`Trade ${coin.name}`}>
       <button className="absolute inset-0 bg-ink/30" aria-label="Close" onClick={onClose} tabIndex={-1} />
       <div
         ref={panel}
-        className="sheet-in relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-sheet bg-sheet shadow-[0_-12px_48px_rgb(var(--ink)/0.18)] md:max-h-none md:w-[460px] md:rounded-none md:rounded-l-sheet"
+        className="sheet-in relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-sheet bg-sheet shadow-[0_-12px_48px_rgb(var(--ink)/0.18)] md:max-h-none md:w-[440px] md:rounded-none md:rounded-l-sheet"
       >
-        <div className="flex items-center gap-3 border-b border-rule px-5 py-4">
+        <div className="flex items-center gap-3 px-5 pb-3 pt-4">
           <CoinMark src={coin.image} symbol={coin.symbol} size={30} />
           <div className="min-w-0">
-            <div className="truncate font-medium">{coin.name}</div>
+            <div className="truncate font-medium">
+              {filled ? coin.name : `${buying ? "Buy" : "Sell"} ${coin.name}`}
+            </div>
             <div className="num text-xs text-graphite">{money(coin.price)}</div>
           </div>
           <button onClick={onClose} className="ml-auto rounded-full p-2 text-graphite hover:text-ink" aria-label="Close ticket">
@@ -177,192 +173,178 @@ export default function Ticket({ coin, initialSide = "buy", onClose, onFilled })
         {filled ? (
           <Filled trade={filled} onClose={onClose} />
         ) : (
-          <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 space-y-7 overflow-y-auto px-5 py-5">
-              <div className="grid grid-cols-2 rounded-chip border border-rule p-1" role="tablist" aria-label="Order side">
-                {["buy", "sell"].map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    role="tab"
-                    aria-selected={side === s}
-                    disabled={s === "sell" && !position}
-                    onClick={() => {
-                      setSide(s);
-                      setAmount("");
-                      setSellShare(null);
-                    }}
-                    className={`rounded-chip py-2 text-sm capitalize transition-colors disabled:opacity-40 ${
-                      side === s ? "bg-ink text-paper" : "text-graphite hover:text-ink"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+          <>
+            <div className="px-5 pb-4">
+              <Steps count={stepNames.length} current={step} />
+            </div>
 
-              {hot && (
-                <div className="rounded-field border-l-2 border-loss bg-loss/[0.06] px-4 py-3 text-sm">
-                  <p className="font-medium">{coin.name} is running hot.</p>
-                  <ul className="mt-1 space-y-0.5 text-graphite">
-                    {coin.heat.drivers.slice(0, 3).map((d) => (
-                      <li key={d}>{d}.</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <section>
-                {side === "buy" ? (
-                  <>
-                    <label htmlFor="amount" className="text-sm text-graphite">
-                      Amount
-                    </label>
-                    <div className="mt-2 flex items-baseline gap-1 border-b border-rule pb-2 focus-within:border-ink">
-                      <span className="text-2xl text-graphite">$</span>
-                      <input
-                        id="amount"
-                        inputMode="decimal"
-                        autoComplete="off"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-                        placeholder="0"
-                        className="num w-full text-3xl font-light outline-none placeholder:text-rule"
-                      />
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <div className="flex gap-1.5">
-                        {[0.05, 0.1, 0.25].map((f) => (
-                          <button
-                            type="button"
-                            key={f}
-                            className="chip"
-                            onClick={() => setAmount((Math.floor(((cash * f) / 1.004) * 100) / 100).toString())}
-                          >
-                            {f * 100}%
-                          </button>
-                        ))}
-                      </div>
-                      <span className="num text-xs text-graphite">{money(cash)} available</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm text-graphite">
-                      You hold <span className="num text-ink">{qty(position?.quantity)}</span> {coin.symbol}
-                      {position?.pnl_pct !== null && (
-                        <>
-                          {" "}
-                          at <span className="num">{pct(position.pnl_pct)}</span>
-                        </>
-                      )}
-                    </p>
-                    <div className="mt-3 flex gap-1.5">
-                      {[0.25, 0.5, 1].map((f) => (
+            <div key={`${side}-${step}`} className="flex-1 space-y-8 overflow-y-auto px-5 pb-6 pt-2">
+              {step === 0 && (
+                <>
+                  {position && (
+                    <div className="grid grid-cols-2 rounded-chip border border-rule p-1" role="tablist" aria-label="Order side">
+                      {["buy", "sell"].map((s) => (
                         <button
+                          key={s}
                           type="button"
-                          key={f}
-                          aria-pressed={sellShare === f}
-                          className="chip"
+                          role="tab"
+                          aria-selected={side === s}
                           onClick={() => {
-                            setSellShare(f);
+                            setSide(s);
                             setAmount("");
+                            setSellShare(null);
                           }}
+                          className={`rounded-chip py-2 text-sm capitalize transition-colors ${side === s ? "bg-ink text-paper" : "text-graphite hover:text-ink"}`}
                         >
-                          {f === 1 ? "All" : `${f * 100}%`}
+                          {s}
                         </button>
                       ))}
                     </div>
-                    {position?.below_stop && <p className="mt-3 text-sm text-loss">Price is below the stop you planned.</p>}
-                    {position?.above_target && <p className="mt-3 text-sm text-gain">Price has passed your target.</p>}
-                  </>
-                )}
-              </section>
-
-              {(quote || quoteError) && (
-                <dl className="-my-1 text-sm">
-                  {quoteError ? (
-                    <p className="py-1.5 text-loss">{quoteError}</p>
-                  ) : (
-                    <>
-                      <Row label={side === "buy" ? "You get" : "You sell"}>
-                        {qty(Number(quote.quantity))} {coin.symbol}
-                      </Row>
-                      <Row label="Fill price">{money(Number(quote.price))}</Row>
-                      <Row label={quote.source === "coinbase" ? "Slippage, live order book" : "Slippage, estimated"}>
-                        {Number(quote.slippage_bps).toFixed(1)} bps
-                      </Row>
-                      <Row label="Fee">{money(Number(quote.fee), { digits: 2 })}</Row>
-                      <Row label={side === "buy" ? "Total" : "You receive"} strong>
-                        {money(Number(quote.total), { digits: 2 })}
-                      </Row>
-                      {side === "buy" && quote.position_pct !== null && (
-                        <Row label="Share of portfolio">{pct(quote.position_pct, { sign: false, digits: 1 })}</Row>
-                      )}
-                    </>
                   )}
-                </dl>
-              )}
-              {overSize && (
-                <p className="-mt-4 text-sm text-loss">
-                  That's more than your {account.rules.max_position_pct}% limit for one coin.
-                </p>
-              )}
 
-              <section>
-                <label htmlFor="thesis" className="text-sm text-graphite">
-                  {side === "buy" ? "Why this, why now?" : "Why sell now? (optional)"}
-                </label>
-                <textarea
-                  id="thesis"
-                  rows={3}
-                  value={thesis}
-                  maxLength={1000}
-                  onChange={(e) => setThesis(e.target.value)}
-                  placeholder={side === "buy" ? "One or two sentences you can check later." : ""}
-                  className="mt-2 w-full resize-none rounded-field border border-rule bg-paper/40 px-3 py-2.5 font-serif text-md leading-snug outline-none placeholder:font-sans placeholder:text-sm placeholder:text-graphite/70 focus:border-ink"
-                />
-              </section>
+                  {hot && (
+                    <div className="rounded-field border-l-2 border-loss bg-loss/[0.06] px-4 py-3 text-sm">
+                      <p className="font-medium">{coin.name} is running hot.</p>
+                      <p className="mt-1 text-graphite">{coin.heat.drivers[0]}.</p>
+                    </div>
+                  )}
 
-              {side === "buy" && (
-                <>
-                  <section className="space-y-3">
-                    <div className="flex flex-wrap items-baseline gap-x-2 text-sm text-graphite">
-                      <span>How sure are you it's higher in</span>
-                      <select
-                        value={horizon}
-                        onChange={(e) => setHorizon(Number(e.target.value))}
-                        className="rounded-field border border-rule px-2 py-0.5 text-ink"
-                        aria-label="Horizon"
-                      >
-                        {HORIZONS.map((h) => (
-                          <option key={h.days} value={h.days}>
-                            {h.label}
-                          </option>
-                        ))}
-                      </select>
-                      <span>?</span>
-                    </div>
-                    <Choice label="Conviction" options={CONVICTION} value={conviction} onChange={setConviction} render={(c) => `${c}%`} />
-                  </section>
+                  {buying ? (
+                    <Section title="How much?">
+                      <div className="flex items-baseline gap-1 border-b border-rule pb-2 focus-within:border-ink">
+                        <span className="text-2xl text-graphite">{currencySymbol()}</span>
+                        <input
+                          data-autofocus
+                          inputMode="decimal"
+                          autoComplete="off"
+                          aria-label="Amount"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                          placeholder="0"
+                          className="num w-full text-4xl font-light outline-none placeholder:text-rule"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <Pills
+                          label="Share of cash"
+                          value={null}
+                          onChange={(f) => setAmount((Math.floor((cash * f) / 1.004 * 100) / 100).toString())}
+                          options={[0.05, 0.1, 0.25].map((f) => ({ value: f, label: `${f * 100}%` }))}
+                        />
+                        <span className="num text-xs text-graphite">{money(account?.cash)} cash</span>
+                      </div>
+                    </Section>
+                  ) : (
+                    <Section title="How much will you sell?" hint={`You hold ${qty(position?.quantity)} ${coin.symbol}${position?.pnl_pct != null ? `, ${pct(position.pnl_pct)}` : ""}.`}>
+                      <Pills
+                        label="Share to sell"
+                        value={sellShare}
+                        onChange={setSellShare}
+                        options={[0.25, 0.5, 1].map((f) => ({ value: f, label: f === 1 ? "All of it" : `${f * 100}%` }))}
+                      />
+                      {position?.below_stop && <p className="text-sm text-loss">Price is below the stop you planned.</p>}
+                      {position?.above_target && <p className="text-sm text-gain">Price has passed your target.</p>}
+                    </Section>
+                  )}
 
-                  <section className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <div className="text-sm text-graphite">Exit if it falls</div>
-                      <Choice label="Stop loss" options={STOPS} value={stop} onChange={setStop} render={(s) => `−${s}%`} />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-sm text-graphite">Take profit at</div>
-                      <Choice label="Target" options={TARGETS} value={target} onChange={setTarget} render={(t) => `+${t}%`} />
-                    </div>
-                  </section>
+                  {quote && (
+                    <dl className="-my-1 text-sm">
+                      <Line label={buying ? "You get" : "You sell"}>
+                        {qty(Number(quote.quantity))} {coin.symbol}
+                      </Line>
+                      <Line label="Fee">{money(Number(quote.fee), { digits: 2 })}</Line>
+                      <Line label={buying ? "Total" : "You receive"} strong>
+                        {money(Number(quote.total), { digits: 2 })}
+                      </Line>
+                    </dl>
+                  )}
+                  {quoteError && <p className="text-sm text-loss">{quoteError}</p>}
+                  {overSize && <p className="text-sm text-loss">That's more than your {account.rules.max_position_pct}% limit for one coin.</p>}
                 </>
               )}
 
-              <section className="space-y-2">
-                <div className="text-sm text-graphite">Right now I feel</div>
-                <Choice label="Mood" options={MOODS} value={mood} onChange={setMood} render={(m) => m[0].toUpperCase() + m.slice(1)} />
-              </section>
+              {buying && step === 1 && (
+                <>
+                  <Section title="Why this, why now?" hint="One sentence you can check yourself against later.">
+                    <textarea
+                      data-autofocus
+                      rows={3}
+                      value={thesis}
+                      maxLength={1000}
+                      onChange={(e) => setThesis(e.target.value)}
+                      aria-label="Your reason"
+                      className="w-full resize-none rounded-field border border-rule bg-paper/40 px-3 py-2.5 font-serif text-md leading-snug outline-none focus:border-ink"
+                    />
+                  </Section>
+                  <Section title={`When do you expect it to be higher?`}>
+                    <Pills label="Horizon" value={horizon} onChange={setHorizon} options={HORIZONS} />
+                  </Section>
+                  <Section title="How sure are you?">
+                    <Pills label="Conviction" value={conviction} onChange={setConviction} options={CONVICTION} />
+                  </Section>
+                </>
+              )}
+
+              {buying && step === 2 && (
+                <>
+                  <Section title="Where would you get out?" hint="Optional, but it's easier to decide now than in the moment.">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm text-graphite">If it falls</span>
+                        <Pills label="Stop loss" allowNone value={stop} onChange={setStop} options={STOPS} />
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm text-graphite">If it rises</span>
+                        <Pills label="Target" allowNone value={target} onChange={setTarget} options={TARGETS} />
+                      </div>
+                    </div>
+                  </Section>
+                  <Section title="How are you feeling?">
+                    <Pills label="Mood" allowNone value={mood} onChange={setMood} options={MOODS} />
+                  </Section>
+                </>
+              )}
+
+              {step === last && (
+                <>
+                  <div>
+                    <p className="text-xl font-light leading-snug tracking-tight">
+                      {buying ? "Buy" : "Sell"} <span className="num">{qty(Number(quote?.quantity))}</span> {coin.symbol} for{" "}
+                      <span className="num">{money(Number(quote?.total), { digits: 2 })}</span>.
+                    </p>
+                    {buying && (
+                      <p className="mt-2 text-graphite">
+                        {conviction}% sure it's higher {horizonLabel}
+                        {stop ? `, out at −${stop}%` : ""}
+                        {target ? `, taking profit at +${target}%` : ""}.
+                      </p>
+                    )}
+                    {buying && thesis && <blockquote className="mt-4 font-serif text-md italic">“{thesis}”</blockquote>}
+                  </div>
+                  {quote && (
+                    <dl className="text-sm">
+                      <Line label="Fill price">{money(Number(quote.price))}</Line>
+                      <Line label={quote.source === "coinbase" ? "Slippage from the live order book" : "Estimated slippage"}>
+                        {Number(quote.slippage_bps).toFixed(1)} bps
+                      </Line>
+                      <Line label="Fee">{money(Number(quote.fee), { digits: 2 })}</Line>
+                      {buying && quote.position_pct !== null && <Line label="Share of portfolio">{pct(quote.position_pct, { sign: false, digits: 1 })}</Line>}
+                    </dl>
+                  )}
+                  {!buying && (
+                    <Section title="Anything to note? (optional)">
+                      <textarea
+                        rows={2}
+                        value={thesis}
+                        onChange={(e) => setThesis(e.target.value)}
+                        aria-label="Note"
+                        className="w-full resize-none rounded-field border border-rule bg-paper/40 px-3 py-2.5 font-serif text-md outline-none focus:border-ink"
+                      />
+                      <Pills label="Mood" allowNone value={mood} onChange={setMood} options={MOODS} />
+                    </Section>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="border-t border-rule px-5 py-4">
@@ -373,19 +355,34 @@ export default function Ticket({ coin, initialSide = "buy", onClose, onFilled })
               ) : error ? (
                 <p className="mb-3 text-sm text-loss">{error}</p>
               ) : null}
-              <button
-                type="submit"
-                disabled={Boolean(missing || blocked || pauseLeft || busy)}
-                className={`${side === "buy" ? "btn-ink" : "btn-quiet"} w-full !py-3`}
-              >
-                {busy
-                  ? "Placing order…"
-                  : pauseLeft && !missing
-                    ? `Take a breath, ${pauseLeft}s`
-                    : missing || (side === "buy" ? `Buy ${coin.symbol}` : `Sell ${coin.symbol}`)}
-              </button>
+              <div className="flex gap-2">
+                {step > 0 && (
+                  <button type="button" className="btn-quiet" onClick={() => setStep(step - 1)}>
+                    Back
+                  </button>
+                )}
+                {step < last ? (
+                  <button
+                    type="button"
+                    className="btn-ink flex-1 !py-3"
+                    disabled={!stepReady[step] || Boolean(blocked)}
+                    onClick={() => setStep(step + 1)}
+                  >
+                    {nextLabel}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={`${buying ? "btn-marker" : "btn-ink"} flex-1 !py-3`}
+                    disabled={Boolean(blocked || pauseLeft || busy || !quote)}
+                    onClick={submit}
+                  >
+                    {busy ? "Placing order…" : pauseLeft ? `Take a breath, ${pauseLeft}s` : buying ? `Buy ${coin.symbol}` : `Sell ${coin.symbol}`}
+                  </button>
+                )}
+              </div>
             </div>
-          </form>
+          </>
         )}
       </div>
     </div>
@@ -398,21 +395,13 @@ function Filled({ trade, onClose }) {
     <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
       <div className="stamp mb-8 rounded-[10px] border-[3px] border-ink px-6 py-2 text-xl font-semibold tracking-wide">Filled</div>
       <p className="text-md">
-        {bought ? "Bought" : "Sold"} <span className="num">{qty(trade.quantity)}</span> {trade.symbol} at{" "}
-        <span className="num">{money(trade.price)}</span>
+        {bought ? "Bought" : "Sold"} <span className="num">{qty(trade.quantity)}</span> {trade.symbol} at <span className="num">{money(trade.price)}</span>
       </p>
-      <p className="num mt-1 text-sm text-graphite">
-        {money(trade.fee, { digits: 2 })} fee, {trade.slippage_bps.toFixed(1)} bps slippage
-      </p>
+      <p className="num mt-1 text-sm text-graphite">{money(trade.fee, { digits: 2 })} in fees</p>
       {trade.realized_pnl !== null && (
-        <p className={`num mt-3 ${trade.realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>
-          {money(trade.realized_pnl, { sign: true, digits: 2 })} realized
-        </p>
+        <p className={`num mt-3 ${trade.realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>{money(trade.realized_pnl, { sign: true, digits: 2 })} realized</p>
       )}
-      {trade.thesis && <blockquote className="mt-6 max-w-xs font-serif text-md italic text-graphite">“{trade.thesis}”</blockquote>}
-      {trade.resolves_at && (
-        <p className="mt-4 text-sm text-graphite">We'll check this call on {new Date(trade.resolves_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.</p>
-      )}
+      {trade.resolves_at && <p className="mt-6 text-sm text-graphite">Your journal will check this call on {day(trade.resolves_at)}.</p>}
       <div className="mt-10 flex gap-3">
         <button onClick={onClose} className="btn-ink">
           Done

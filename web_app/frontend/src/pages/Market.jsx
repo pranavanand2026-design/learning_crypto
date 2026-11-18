@@ -9,6 +9,8 @@ import LivePrice from "../components/LivePrice";
 import { HeatMeter } from "../components/Heat";
 import { Wire } from "../components/Headlines";
 import Floor from "../components/Floor";
+import Landing from "../components/Landing";
+import { useAuth } from "../state/auth";
 import Tour from "../components/Tour";
 import { Loading, Problem } from "../components/States";
 
@@ -19,6 +21,7 @@ const SORTS = [
 ];
 
 export default function Market() {
+  const { user } = useAuth();
   const markets = useApi("/market/", { interval: 90000 });
   const news = useApi("/news/?linked=1", { interval: 600000 });
   const [sort, setSort] = useState("cap");
@@ -41,8 +44,14 @@ export default function Market() {
   return (
     <div>
       <Tour id="market" ready={Boolean(markets.data)} />
-      <Floor rows={all} ticks={ticks} />
-      <Wire items={news.data?.results} />
+      {user ? (
+        <>
+          <Floor rows={all} ticks={ticks} />
+          <Wire items={news.data?.results} />
+        </>
+      ) : (
+        <Landing rows={all} ticks={ticks} />
+      )}
 
       <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1.5" role="radiogroup" aria-label="Sort">

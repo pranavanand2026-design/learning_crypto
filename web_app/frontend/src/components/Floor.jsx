@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { useAuth } from "../state/auth";
 import { money, pct } from "../lib/format";
 import CoinMark from "./CoinMark";
 import Sparkline from "./Sparkline";
@@ -45,7 +44,6 @@ const changeTone = (v) => (v > 0 ? "text-gain-hi" : v < 0 ? "text-loss-hi" : "te
  * majors ticking live, and a tape of everything else.
  */
 export default function Floor({ rows, ticks }) {
-  const { user, config } = useAuth();
   if (!rows?.length) return null;
   const { coin, line, why } = spotlight(rows);
   const price = (r) => ticks[r.live_product]?.price ?? r.price;
@@ -58,25 +56,7 @@ export default function Floor({ rows, ticks }) {
       data-tour="floor"
       className="relative left-1/2 -mt-6 mb-10 w-screen -translate-x-1/2 overflow-hidden bg-floor text-on-floor md:-mt-10"
     >
-      {!user && (
-        <div className="mx-auto max-w-page px-4 pb-12 pt-14 md:px-6 lg:pb-16 lg:pt-20">
-          <h1 className="max-w-4xl text-[2.6rem] font-light leading-[1.02] tracking-tight md:text-[4.5rem]">
-            Make your crypto mistakes here, not with your rent.
-          </h1>
-          <p className="mt-6 max-w-xl text-md text-on-floor/70">
-            Trade the live market with {money(config.starting_cash, { digits: 0, raw: true })} of practice money, and learn what hype does to your decisions before it costs you anything.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link to="/signup" className="btn-marker !px-6 !py-3">
-              Start practising free
-            </Link>
-            <Link to="/login" className="btn border border-on-floor/25 !px-6 !py-3 text-on-floor hover:border-on-floor/60">
-              Log in
-            </Link>
-          </div>
-        </div>
-      )}
-      <div className={`mx-auto grid max-w-page gap-10 px-4 pb-10 md:px-6 lg:grid-cols-[1.15fr_1fr] ${user ? "pt-10 lg:pt-14" : "border-t border-on-floor/10 pt-10"}`}>
+      <div className="mx-auto grid max-w-page gap-10 px-4 pb-10 pt-10 md:px-6 lg:grid-cols-[1.15fr_1fr] lg:pt-14">
         <div className="flex min-w-0 flex-col">
           <Link to={`/coin/${coin.id}`} className="flex items-center gap-3 text-on-floor/70 hover:text-on-floor">
             <CoinMark src={coin.image} symbol={coin.symbol} size={28} />
@@ -84,11 +64,7 @@ export default function Floor({ rows, ticks }) {
             <LivePrice value={price(coin)} className="text-on-floor" />
             <HeatMeter heat={coin.heat} empty="bg-on-floor/15" />
           </Link>
-          {user ? (
-            <h1 className="mt-5 max-w-xl text-3xl font-light leading-[1.05] tracking-tight md:text-4xl">{line}</h1>
-          ) : (
-            <h2 className="mt-5 max-w-xl text-2xl font-light leading-[1.1] tracking-tight md:text-3xl">{line}</h2>
-          )}
+          <h1 className="mt-5 max-w-xl text-3xl font-light leading-[1.05] tracking-tight md:text-4xl">{line}</h1>
           {why.length > 0 && (
             <ul className="mt-4 space-y-1 text-on-floor/65">
               {why.map((w) => (
@@ -96,7 +72,7 @@ export default function Floor({ rows, ticks }) {
               ))}
             </ul>
           )}
-          <Sparkline points={coin.sparkline} width={560} height={120} fluid area className="mt-8 h-20 text-marker md:h-[120px]" />
+          <Sparkline points={coin.sparkline} width={560} height={120} fluid area className="mt-8 h-20 text-accent-hi md:h-[120px]" />
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link to={`/coin/${coin.id}`} className="btn-marker">
               Look closer
@@ -121,9 +97,17 @@ export default function Floor({ rows, ticks }) {
         </ul>
       </div>
 
-      <div className="scroll-x overflow-x-auto border-t border-on-floor/10 py-3 text-sm" aria-hidden>
+      <Tape rows={tape} price={price} />
+    </section>
+  );
+}
+
+/** A slow tape of live prices along the bottom edge of a dark band. */
+export function Tape({ rows, price }) {
+  return (
+    <div className="scroll-x overflow-x-auto border-t border-on-floor/10 py-3 text-sm" aria-hidden>
         <div className="tape flex gap-8 pl-4">
-          {[...tape, ...tape].map((r, i) => (
+          {[...rows, ...rows].map((r, i) => (
             <span key={`${r.id}-${i}`} className="flex shrink-0 items-center gap-2">
               <span className="text-on-floor/60">{r.symbol}</span>
               <span className="num">{money(price(r))}</span>
@@ -132,6 +116,5 @@ export default function Floor({ rows, ticks }) {
           ))}
         </div>
       </div>
-    </section>
   );
 }

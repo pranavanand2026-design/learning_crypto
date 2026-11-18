@@ -70,10 +70,10 @@ export default function Shell() {
               </>
             ) : (
               <>
-                <Link to="/login" className="text-sm text-graphite hover:text-ink">
+                <Link to="/login" className="link-draw text-sm text-graphite hover:text-ink">
                   Log in
                 </Link>
-                <Link to="/signup" className="btn-quiet !px-4 !py-2">
+                <Link to="/signup" className="btn-accent btn-lift !px-4 !py-2">
                   Create account
                 </Link>
               </>

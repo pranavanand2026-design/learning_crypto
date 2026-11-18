@@ -3,48 +3,57 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/auth";
 import { useApi } from "../lib/hooks";
 import { useLiveTicks } from "../lib/live";
-import { money, pct, tone } from "../lib/format";
+import { money, pct } from "../lib/format";
 import { Wordmark } from "../components/Brand";
 import CoinMark from "../components/CoinMark";
 import LivePrice from "../components/LivePrice";
 
 const ReCAPTCHA = lazy(() => import("react-google-recaptcha"));
 
-function Tape() {
+function Showcase() {
   const { data } = useApi("/market/");
-  const rows = (data?.results || []).filter((r) => r.live_product).slice(0, 9);
+  const rows = (data?.results || []).filter((r) => r.live_product).slice(0, 6);
   const ticks = useLiveTicks(rows.map((r) => r.live_product));
   return (
-    <ul className="ruled w-full max-w-sm" aria-label="Live prices">
-      {rows.map((r) => (
-        <li key={r.id} className="flex items-center gap-3 py-3">
-          <CoinMark src={r.image} symbol={r.symbol} size={22} />
-          <span className="flex-1 text-sm">{r.name}</span>
-          <LivePrice value={ticks[r.live_product]?.price ?? r.price} className="text-sm" />
-          <span className={`num w-16 text-right text-xs ${tone(r.change_24h)}`}>{pct(r.change_24h)}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="relative hidden overflow-hidden bg-floor text-on-floor lg:flex lg:flex-col lg:justify-end">
+      <img src="/hero.webp" alt="" aria-hidden className="hero-photo absolute inset-0 h-full w-full object-cover object-[85%_bottom]" />
+      <div className="absolute inset-0 bg-gradient-to-t from-floor via-floor/50 to-floor/10" />
+      <ul className="relative m-10 grid grid-cols-2 gap-px overflow-hidden rounded-sheet bg-on-floor/10 backdrop-blur-sm" aria-label="Live prices">
+        {rows.map((r) => (
+          <li key={r.id} className="flex items-center gap-3 bg-floor/70 px-4 py-3.5">
+            <CoinMark src={r.image} symbol={r.symbol} size={22} />
+            <span className="flex-1 text-sm text-on-floor/70">{r.symbol}</span>
+            <span className="text-right">
+              <LivePrice value={ticks[r.live_product]?.price ?? r.price} className="block text-sm" />
+              <span className={`num block text-xs ${r.change_24h >= 0 ? "text-gain-hi" : "text-loss-hi"}`}>{pct(r.change_24h)}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
-function Frame({ title, children }) {
+function Frame({ title, sub, children, shakeKey }) {
   return (
-    <div className="grid min-h-screen lg:grid-cols-[1fr_1fr]">
+    <div className="grid min-h-screen lg:grid-cols-[1fr_1.1fr]">
       <div className="flex flex-col px-6 py-6 md:px-12">
         <Wordmark />
         <div className="flex flex-1 items-center">
-          <div className="w-full max-w-sm py-12">
-            <h1 className="text-2xl font-light tracking-tight">{title}</h1>
+          <div key={shakeKey} className={`sheet-in w-full max-w-sm py-12 ${shakeKey ? "shake" : ""}`}>
+            <h1 className="text-3xl font-light tracking-tight">{title}</h1>
+            {sub && <p className="mt-2 text-graphite">{sub}</p>}
             {children}
           </div>
         </div>
       </div>
-      <div className="hidden flex-col items-center justify-center border-l border-rule bg-sheet px-12 lg:flex">
-        <Tape />
-      </div>
+      <Showcase />
     </div>
   );
+}
+
+function Spinner() {
+  return <span className="h-4 w-4 animate-spin rounded-full border-2 border-on-accent/40 border-t-on-accent" aria-hidden />;
 }
 
 function Captcha({ siteKey, onChange, captchaRef }) {
@@ -56,12 +65,45 @@ function Captcha({ siteKey, onChange, captchaRef }) {
   );
 }
 
-function Field({ label, ...props }) {
+function Field({ label, type = "text", ...props }) {
+  const [show, setShow] = useState(false);
+  const secret = type === "password";
   return (
-    <label className="block">
-      <span className="text-sm text-graphite">{label}</span>
-      <input {...props} className="field mt-1.5" />
+    <label className="group block">
+      <span className="text-sm text-graphite transition-colors group-focus-within:text-accent">{label}</span>
+      <span className="relative mt-1.5 block">
+        <input
+          {...props}
+          type={secret && show ? "text" : type}
+          className="field !py-3 transition-shadow focus:!border-accent focus:shadow-[0_0_0_4px_rgb(var(--accent)/0.15)]"
+        />
+        {secret && (
+          <button
+            type="button"
+            onClick={() => setShow(!show)}
+            className="absolute inset-y-0 right-0 px-3 text-xs text-graphite hover:text-ink"
+            aria-label={show ? "Hide password" : "Show password"}
+          >
+            {show ? "Hide" : "Show"}
+          </button>
+        )}
+      </span>
     </label>
+  );
+}
+
+function Strength({ password }) {
+  const score = [password.length >= 8, /\d/.test(password), /[a-z]/i.test(password) && /[^a-z0-9]/i.test(password), password.length >= 12].filter(Boolean).length;
+  const label = ["", "Weak", "Okay", "Good", "Strong"][score];
+  return (
+    <div className="mt-2" aria-live="polite">
+      <div className="flex gap-1">
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} className={`h-1 flex-1 rounded-full transition-colors duration-300 ${i < score ? (score < 2 ? "bg-loss" : score < 3 ? "bg-warm" : "bg-accent") : "bg-rule"}`} />
+        ))}
+      </div>
+      {password && <span className="mt-1 block text-xs text-graphite">{label}</span>}
+    </div>
   );
 }
 
@@ -73,6 +115,7 @@ export function Login() {
   const [captcha, setCaptcha] = useState(null);
   const [error, setError] = useState(location.state?.notice || null);
   const [busy, setBusy] = useState(false);
+  const [fails, setFails] = useState(0);
   const captchaRef = useRef(null);
   if (user) return <Navigate to={location.state?.from || "/"} replace />;
 
@@ -85,6 +128,7 @@ export function Login() {
       navigate(location.state?.from || "/", { replace: true });
     } catch (err) {
       setError(err.status === 401 ? "That email and password don't match." : err.message);
+      setFails((n) => n + 1);
       captchaRef.current?.reset();
       setCaptcha(null);
     } finally {
@@ -93,19 +137,20 @@ export function Login() {
   }
 
   return (
-    <Frame title="Welcome back">
+    <Frame title="Welcome back" sub="Your portfolio is where you left it." shakeKey={fails}>
       <form onSubmit={submit} className="mt-8 space-y-5">
         <Field label="Email" type="email" autoComplete="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <Field label="Password" type="password" autoComplete="current-password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
         <Captcha siteKey={config.recaptcha_site_key} onChange={setCaptcha} captchaRef={captchaRef} />
         {error && <p className="text-sm text-loss" role="alert">{error}</p>}
-        <button className="btn-ink w-full !py-3" disabled={busy || (config.recaptcha_site_key && !captcha)}>
-          {busy ? "Logging in…" : "Log in"}
+        <button className="btn-accent btn-lift w-full !py-3.5" disabled={busy || (config.recaptcha_site_key && !captcha)}>
+          {busy ? <Spinner /> : null}
+          {busy ? "Logging in" : "Log in"}
         </button>
       </form>
       <p className="mt-6 text-sm text-graphite">
         New here?{" "}
-        <Link to="/signup" className="link text-ink">
+        <Link to="/signup" className="link-draw font-medium text-accent">
           Create an account
         </Link>
       </p>
@@ -125,6 +170,7 @@ export function Signup() {
   const [captcha, setCaptcha] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [fails, setFails] = useState(0);
   if (user) return <Navigate to="/" replace />;
   const strong = RULES.every((r) => r.test(form.password));
 
@@ -140,6 +186,7 @@ export function Signup() {
         navigate("/login", { state: { notice: "Account created. Log in to continue." } });
       } else {
         setError(err.message);
+        setFails((n) => n + 1);
       }
     } finally {
       setBusy(false);
@@ -147,30 +194,24 @@ export function Signup() {
   }
 
   return (
-    <Frame title="Create your account">
-      <p className="mt-2 text-graphite">You'll start with {money(config.starting_cash, { digits: 0, raw: true })} in practice money.</p>
+    <Frame title="Create your account" sub={`Start with ${money(config.starting_cash, { digits: 0, raw: true })} in practice money.`} shakeKey={fails}>
       <form onSubmit={submit} className="mt-8 space-y-5">
         <Field label="Name" autoComplete="name" required value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
         <Field label="Email" type="email" autoComplete="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <div>
           <Field label="Password" type="password" autoComplete="new-password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-          <ul className="mt-2 flex gap-4 text-xs">
-            {RULES.map((r) => (
-              <li key={r.label} className={r.test(form.password) ? "text-gain" : "text-graphite"}>
-                {r.label}
-              </li>
-            ))}
-          </ul>
+          <Strength password={form.password} />
         </div>
         <Captcha siteKey={config.recaptcha_site_key} onChange={setCaptcha} />
         {error && <p className="text-sm text-loss" role="alert">{error}</p>}
-        <button className="btn-ink w-full !py-3" disabled={busy || !strong || (config.recaptcha_site_key && !captcha)}>
-          {busy ? "Creating account…" : "Create account"}
+        <button className="btn-accent btn-lift w-full !py-3.5" disabled={busy || !strong || (config.recaptcha_site_key && !captcha)}>
+          {busy ? <Spinner /> : null}
+          {busy ? "Creating account" : strong ? "Create account" : "8+ characters, with a number"}
         </button>
       </form>
       <p className="mt-6 text-sm text-graphite">
         Already trading?{" "}
-        <Link to="/login" className="link text-ink">
+        <Link to="/login" className="link-draw font-medium text-accent">
           Log in
         </Link>
       </p>

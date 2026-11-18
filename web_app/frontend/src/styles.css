@@ -182,3 +182,20 @@
 @keyframes hero-photo { from { transform: scale(1.06); opacity: 0; } to { transform: none; } }
 .hero-photo { animation: hero-photo 2.4s cubic-bezier(.2,.7,.2,1) both; }
 @media (prefers-reduced-motion: reduce) { .grove-rise, .grove-grow, .hero-photo { animation: none; } }
+
+/* Buttons that respond: lift on hover, a soft sheen sweeps across */
+.btn-lift { position: relative; overflow: hidden; box-shadow: 0 1px 0 rgb(var(--ink) / 0.05); }
+.btn-lift:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 22px -8px rgb(var(--accent) / 0.65); }
+.btn-lift::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-120%);
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.28) 50%, transparent 70%);
+}
+.btn-lift:hover:not(:disabled)::after { transform: translateX(120%); transition: transform 650ms ease; }
+
+/* Text links whose underline draws in */
+.link-draw { background: linear-gradient(currentColor, currentColor) left bottom / 0% 1px no-repeat; transition: background-size 250ms ease, color 150ms; padding-bottom: 2px; }
+.link-draw:hover { background-size: 100% 1px; }
+
+@keyframes shake { 0%,100% { transform: none; } 20%,60% { transform: translateX(-6px); } 40%,80% { transform: translateX(6px); } }
+.shake { animation: shake 380ms ease; }
+@media (prefers-reduced-motion: reduce) { .btn-lift:hover:not(:disabled) { transform: none; } .btn-lift::after { display: none; } .shake { animation: none; } }

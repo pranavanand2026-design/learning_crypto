@@ -3,25 +3,7 @@ import { money } from "../lib/format";
 import { useAuth } from "../state/auth";
 import { Tape } from "./Floor";
 import HeroArt from "./HeroArt";
-import { JournalIcon, MarketIcon, ProgressIcon } from "./Icons";
-
-const STEPS = [
-  {
-    Icon: MarketIcon,
-    title: "Trade the real market",
-    body: "Live prices from real exchanges, real fees and slippage. Only the money is pretend.",
-  },
-  {
-    Icon: JournalIcon,
-    title: "Say why",
-    body: "Every buy asks for your reason, your time frame and how sure you are. It all goes in your journal.",
-  },
-  {
-    Icon: ProgressIcon,
-    title: "See what kind of investor you are",
-    body: "We check your calls when the time is up and show your patterns: chasing hype, trading on tilt, overconfidence.",
-  },
-];
+import StepStory from "./StepStory";
 
 /** What a first-time visitor sees above the market. */
 export default function Landing({ rows, ticks }) {
@@ -45,10 +27,10 @@ export default function Landing({ rows, ticks }) {
             made it, and shows you how your judgment holds up.
           </p>
           <div className="mt-10 flex flex-wrap items-center gap-6">
-            <Link to="/signup" className="btn bg-accent-hi !px-7 !py-3.5 text-floor hover:brightness-105">
+            <Link to="/signup" className="btn btn-lift bg-accent-hi !px-7 !py-3.5 text-floor">
               Start practising free
             </Link>
-            <Link to="/login" className="text-sm text-on-floor/75 underline decoration-on-floor/30 underline-offset-4 hover:text-on-floor">
+            <Link to="/login" className="link-draw text-sm text-on-floor/75 hover:text-on-floor">
               I already have an account
             </Link>
           </div>
@@ -60,26 +42,11 @@ export default function Landing({ rows, ticks }) {
         )}
       </section>
 
-      <section aria-label="How it works" className="border-b border-rule py-16 md:py-20">
-        <ol className="grid gap-10 md:grid-cols-3 md:gap-12">
-          {STEPS.map((step, i) => (
-            <li key={step.title}>
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-marker text-on-marker">
-                  <step.Icon width={20} height={20} />
-                </span>
-                <span className="num text-sm text-graphite">Step {i + 1}</span>
-              </div>
-              <h2 className="mt-5 text-lg font-medium tracking-tight">{step.title}</h2>
-              <p className="mt-2 max-w-sm leading-relaxed text-graphite">{step.body}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
+      <StepStory rows={rows} ticks={ticks} />
 
-      <div className="pt-14">
+      <div className="border-t border-rule pt-14">
         <h2 className="text-xl font-medium tracking-tight">Today's market</h2>
-        <p className="mt-1 text-sm text-graphite">Live prices, and how much attention each coin is getting compared with its normal.</p>
+
       </div>
     </>
   );

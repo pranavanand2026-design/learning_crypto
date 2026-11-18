@@ -1,0 +1,16 @@
+# Files Cloud Build doesn't need (keeps uploads small and secrets local)
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+**/__pycache__/
+**/node_modules/
+web_app/frontend/dist/
+staticfiles/
+db.sqlite3
+.coverage
+htmlcov/
+tests/

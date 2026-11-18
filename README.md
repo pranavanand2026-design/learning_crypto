@@ -73,6 +73,16 @@ Tests:
 pytest
 ```
 
+## Deploying to Google Cloud Run
+
+One command from a machine with the [gcloud CLI](https://cloud.google.com/sdk/docs/install) signed in:
+
+```bash
+./scripts/deploy.sh YOUR_PROJECT_ID
+```
+
+It enables the required services, keeps the Django secret key in Secret Manager, builds the container with Cloud Build and prints the public URL. Without `DATABASE_URL` the app uses SQLite inside the container, which resets when Cloud Run replaces the instance; set `DATABASE_URL` (e.g. a free Neon Postgres) before running the script to keep data.
+
 ## Configuration
 
 All settings come from the environment (see `.env.example`): `DJANGO_SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS`, `DATABASE_URL`, `COINGECKO_API_KEY` (optional demo key), and the optional `RECAPTCHA_*` settings. Without reCAPTCHA configured, login doesn't ask for a captcha.

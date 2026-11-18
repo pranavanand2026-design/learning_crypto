@@ -12,7 +12,14 @@ venv/
 .venv/
 
 # Environment
+.env
+.env.*
+!.env.example
 
+# Test artefacts
+.coverage
+htmlcov/
+staticfiles/
 
 # VS Code
 .vscode/

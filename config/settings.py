@@ -1,15 +1,28 @@
 from pathlib import Path
 import os
 from datetime import timedelta
+
+import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+
+def env_list(name, default=""):
+    return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
+
+
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DEBUG is off.")
+    SECRET_KEY = "dev-only-insecure-key-do-not-use-in-production"
+
+ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -28,6 +41,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -72,22 +86,45 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 DATABASES = {
-    "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}
+    "default": dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=60,
+    )
 }
 
-CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "http://localhost:5173")
 
+# Cookies are Secure whenever we're not in local development.
+SECURE_COOKIES = os.getenv("SECURE_COOKIES", str(not DEBUG)) == "True"
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = SECURE_COOKIES
+CSRF_COOKIE_SECURE = SECURE_COOKIES
 CSRF_COOKIE_NAME = "csrftoken"
+
+# Cloud Run terminates TLS at the load balancer.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+if not DEBUG:
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "cryptodash",
+    }
+}
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -95,6 +132,10 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_THROTTLE_RATES": {
+        "market": os.getenv("MARKET_THROTTLE_RATE", "120/min"),
+        "orders": os.getenv("ORDER_THROTTLE_RATE", "30/min"),
+    },
 }
 
 # JWT Configuration
@@ -122,7 +163,21 @@ SIMPLE_JWT = {
     'JTI_CLAIM': 'jti',                               # JWT ID for blacklisting
 }
 
-RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY", "6Ldu9vMrAAAAABrORQFSF9nsVNiJhxpoR2Jh4q49")
-RECAPTCHA_PROJECT_ID = os.getenv("RECAPTCHA_PROJECT_ID", "crypto-dash-476008")
+RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY", "")
+RECAPTCHA_PROJECT_ID = os.getenv("RECAPTCHA_PROJECT_ID", "")
 RECAPTCHA_API_KEY = os.getenv("RECAPTCHA_API_KEY", "")
 RECAPTCHA_MIN_SCORE = float(os.getenv("RECAPTCHA_MIN_SCORE", "0.3"))
+# Captcha is only enforced when reCAPTCHA Enterprise is fully configured.
+RECAPTCHA_REQUIRED = bool(RECAPTCHA_SITE_KEY and RECAPTCHA_PROJECT_ID and RECAPTCHA_API_KEY)
+
+# Expose password-reset tokens in API responses (local development only).
+EXPOSE_RESET_TOKENS = DEBUG and os.getenv("EXPOSE_RESET_TOKENS", "False") == "True"
+
+COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY", "")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": os.getenv("LOG_LEVEL", "INFO")},
+}

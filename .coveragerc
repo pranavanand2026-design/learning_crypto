@@ -1,7 +1,9 @@
 [run]
 branch = True
 source = 
-    FRI-16-19-11
+    web_app
+    config
+    trading
 omit = 
     */migrations/*
     */tests/*

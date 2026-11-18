@@ -77,7 +77,7 @@ export default function Tour({ id, ready = true }) {
     <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label={step.title}>
       <button className="absolute inset-0 cursor-default" aria-label="Close tour" onClick={close} tabIndex={-1} />
       <div
-        className="pointer-events-none absolute rounded-sheet ring-2 ring-marker transition-all duration-300 ease-out"
+        className="pointer-events-none absolute rounded-sheet ring-2 ring-accent transition-all duration-300 ease-out"
         style={{ ...rect, boxShadow: "0 0 0 9999px rgb(var(--ink) / 0.45)" }}
       />
       <div

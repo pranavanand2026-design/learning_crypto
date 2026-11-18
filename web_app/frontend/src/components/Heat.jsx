@@ -1,6 +1,6 @@
 const LABEL = { quiet: "Quiet", warm: "Warm", hot: "Hot" };
 // The thermometer reads cool to hot along its length, whatever the level.
-const tickColor = (i, ticks) => (i / ticks < 0.35 ? "bg-graphite/70" : i / ticks < 0.65 ? "bg-marker" : "bg-loss");
+const tickColor = (i, ticks) => (i / ticks < 0.35 ? "bg-graphite/70" : i / ticks < 0.65 ? "bg-warm" : "bg-loss");
 
 /** A thermometer of twenty ticks; how far a coin runs ahead of its normal. */
 export function HeatMeter({ heat, ticks = 20, showLabel = true, size = "sm", empty = "bg-rule" }) {

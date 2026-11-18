@@ -123,7 +123,7 @@ export default function Coin() {
               <ul className="mt-4 space-y-2">
                 {c.heat.drivers.map((d) => (
                   <li key={d} className="flex gap-3">
-                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-marker" aria-hidden />
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
                     {d}.
                   </li>
                 ))}

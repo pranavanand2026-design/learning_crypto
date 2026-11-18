@@ -157,7 +157,7 @@ function AvatarPicker({ user, onSave }) {
                 aria-checked={selected}
                 aria-label={name}
                 onClick={() => onSave({ avatar: `preset:${name}` })}
-                className={`rounded-full p-0.5 ring-2 transition ${selected ? "ring-marker" : "ring-transparent hover:ring-rule"}`}
+                className={`rounded-full p-0.5 ring-2 transition ${selected ? "ring-accent" : "ring-transparent hover:ring-rule"}`}
               >
                 <PresetArt name={name} size={44} />
               </button>

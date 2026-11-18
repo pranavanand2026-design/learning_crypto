@@ -55,13 +55,13 @@ function NoteComposer({ trade, onNote, tour }) {
           <path d="M12 20h9" />
           <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" />
         </svg>
-        <span className="underline decoration-transparent underline-offset-4 group-hover:decoration-marker">Add a note</span>
+        <span className="underline decoration-transparent underline-offset-4 group-hover:decoration-accent">Add a note</span>
       </button>
     );
   }
 
   return (
-    <div className="border-l-2 border-marker pl-3">
+    <div className="border-l-2 border-accent/60 pl-3">
       <textarea
         ref={area}
         rows={2}
@@ -112,7 +112,7 @@ function Entry({ t, onNote, first }) {
       <div className="min-w-0 font-serif text-md leading-8">
         <p>
           {bought ? "Bought" : "Sold"} <span className="num">{qty(t.quantity)}</span>{" "}
-          <Link to={`/coin/${t.coin_id}`} className="underline decoration-marker decoration-2 underline-offset-4">
+          <Link to={`/coin/${t.coin_id}`} className="underline decoration-accent decoration-2 underline-offset-4">
             {t.name}
           </Link>{" "}
           at <span className="num">{money(t.price)}</span>
@@ -132,7 +132,7 @@ function Entry({ t, onNote, first }) {
         )}
 
         {t.notes.map((n) => (
-          <p key={n.created_at} className="border-l-2 border-marker pl-3">
+          <p key={n.created_at} className="border-l-2 border-accent/60 pl-3">
             {n.text}
             <span className="ml-2 font-sans text-xs text-graphite">{day(n.created_at)}</span>
           </p>

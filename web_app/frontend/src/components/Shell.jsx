@@ -5,12 +5,13 @@ import { useAccount } from "../state/account";
 import { money } from "../lib/format";
 import { Wordmark } from "./Brand";
 import Avatar from "./Avatar";
+import { JournalIcon, MarketIcon, ProgressIcon, WalletIcon } from "./Icons";
 
 const NAV = [
-  { to: "/", label: "Market", end: true },
-  { to: "/portfolio", label: "Portfolio" },
-  { to: "/journal", label: "Journal" },
-  { to: "/progress", label: "Progress" },
+  { to: "/", label: "Market", end: true, Icon: MarketIcon },
+  { to: "/portfolio", label: "Portfolio", Icon: WalletIcon },
+  { to: "/journal", label: "Journal", Icon: JournalIcon },
+  { to: "/progress", label: "Progress", Icon: ProgressIcon },
 ];
 
 
@@ -41,9 +42,12 @@ export default function Shell() {
                   to={n.to}
                   end={n.end}
                   className={({ isActive }) =>
-                    `rounded-chip px-3 py-1.5 text-sm transition-colors ${isActive ? "bg-ink text-paper" : "text-graphite hover:text-ink"}`
+                    `inline-flex items-center gap-2 rounded-chip px-3 py-1.5 text-sm transition-colors ${
+                      isActive ? "bg-marker text-on-marker" : "text-graphite hover:text-ink"
+                    }`
                   }
                 >
+                  <n.Icon width={16} height={16} />
                   {n.label}
                 </NavLink>
               ))}
@@ -69,7 +73,7 @@ export default function Shell() {
                 <Link to="/login" className="text-sm text-graphite hover:text-ink">
                   Log in
                 </Link>
-                <Link to="/signup" className="btn-ink !px-4 !py-2">
+                <Link to="/signup" className="btn-quiet !px-4 !py-2">
                   Create account
                 </Link>
               </>
@@ -84,9 +88,10 @@ export default function Shell() {
                 to={n.to}
                 end={n.end}
                 className={({ isActive }) =>
-                  `shrink-0 rounded-chip px-3 py-1 text-sm ${isActive ? "bg-ink text-paper" : "text-graphite"}`
+                  `inline-flex shrink-0 items-center gap-1.5 rounded-chip px-3 py-1 text-sm ${isActive ? "bg-marker text-on-marker" : "text-graphite"}`
                 }
               >
+                <n.Icon width={15} height={15} />
                 {n.label}
               </NavLink>
             ))}

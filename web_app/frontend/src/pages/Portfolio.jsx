@@ -10,7 +10,7 @@ import { Loading, Problem } from "../components/States";
 import Tour from "../components/Tour";
 
 // Ink shades for the allocation bar, largest holding darkest.
-const SHADES = ["bg-ink", "bg-ink/75", "bg-ink/55", "bg-ink/40", "bg-ink/30", "bg-ink/20"];
+const SHADES = ["bg-accent", "bg-accent/75", "bg-accent/55", "bg-accent/40", "bg-accent/30", "bg-accent/20"];
 
 function Allocation({ cash, positions, equity }) {
   const parts = [
@@ -83,7 +83,7 @@ function HowItWorks() {
       <ol className="mt-6 grid gap-6 md:grid-cols-3">
         {steps.map(([title, body], i) => (
           <li key={title} className="flex gap-4">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-marker text-sm font-semibold text-[rgb(20_36_48)]">{i + 1}</span>
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-marker text-sm font-semibold text-on-marker">{i + 1}</span>
             <span>
               <span className="block font-medium">{title}</span>
               <span className="mt-1 block text-sm text-graphite">{body}</span>

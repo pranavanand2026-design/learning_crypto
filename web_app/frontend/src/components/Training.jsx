@@ -14,7 +14,7 @@ function Medal({ done, progress }) {
   const c = 2 * Math.PI * r;
   return (
     <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden>
-      <circle cx="30" cy="30" r={r} className={done ? "fill-marker" : "fill-sheet"} />
+      <circle cx="30" cy="30" r={r} className={done ? "fill-accent" : "fill-sheet"} />
       <circle cx="30" cy="30" r={r} fill="none" className="stroke-rule" strokeWidth="3" />
       {!done && progress > 0 && (
         <circle
@@ -29,7 +29,7 @@ function Medal({ done, progress }) {
           transform="rotate(-90 30 30)"
         />
       )}
-      {done && <path d="M20 31l7 7 13-15" fill="none" stroke="rgb(20 36 48)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+      {done && <path d="M20 31l7 7 13-15" fill="none" className="stroke-on-accent" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
     </svg>
   );
 }

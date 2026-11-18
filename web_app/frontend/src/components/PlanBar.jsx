@@ -14,7 +14,7 @@ export default function PlanBar({ position }) {
         {target && <span className="absolute inset-y-0 right-0 rounded-r-full bg-gain/35" style={{ left: at(target) }} />}
         <span className="absolute -top-1 h-3.5 w-px bg-graphite" style={{ left: at(cost) }} />
         <span
-          className="absolute -top-[5px] h-4 w-4 -translate-x-1/2 rounded-full border-2 border-sheet bg-marker shadow"
+          className="absolute -top-[5px] h-4 w-4 -translate-x-1/2 rounded-full border-2 border-sheet bg-accent shadow"
           style={{ left: at(price) }}
           title={`Now ${money(price)}`}
         />

@@ -42,9 +42,9 @@ export default function PriceChart({ prices, trades = [], avgCost, livePrice, he
       lineWidth: 2,
       topColor: tokenColor("ink", 0.12),
       bottomColor: tokenColor("ink", 0),
-      priceLineColor: tokenColor("marker"),
+      priceLineColor: tokenColor("accent"),
       priceLineStyle: LineStyle.Solid,
-      crosshairMarkerBackgroundColor: tokenColor("marker"),
+      crosshairMarkerBackgroundColor: tokenColor("accent"),
     });
     chartRef.current = chart;
     seriesRef.current = series;

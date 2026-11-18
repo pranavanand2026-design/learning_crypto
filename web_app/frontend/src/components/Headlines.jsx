@@ -13,7 +13,7 @@ export function Headline({ item, showCoins = true, size = "md" }) {
         href={item.url}
         target="_blank"
         rel="noopener noreferrer"
-        className={`font-serif ${size === "lg" ? "text-lg" : "text-md"} leading-snug decoration-marker decoration-2 underline-offset-4 hover:underline`}
+        className={`font-serif ${size === "lg" ? "text-lg" : "text-md"} leading-snug decoration-accent decoration-2 underline-offset-4 hover:underline`}
       >
         {item.title}
       </a>

@@ -63,7 +63,7 @@ function Calibration({ cal }) {
         {points.map((b) => (
           <g key={b.conviction}>
             <line x1={x(b.conviction)} x2={x(b.conviction)} y1={y(b.conviction)} y2={y(b.hit_rate)} className="stroke-loss/50" />
-            <circle cx={x(b.conviction)} cy={y(b.hit_rate)} r={5 + Math.min(b.calls, 10)} className="fill-marker stroke-ink" strokeWidth="1.5" />
+            <circle cx={x(b.conviction)} cy={y(b.hit_rate)} r={5 + Math.min(b.calls, 10)} className="fill-accent stroke-sheet" strokeWidth="1.5" />
           </g>
         ))}
         <text x={(W + pad.l) / 2} y={H - 6} textAnchor="middle" className="fill-current text-[12px]">

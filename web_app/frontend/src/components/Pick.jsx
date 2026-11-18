@@ -13,10 +13,10 @@ export function Tiles({ options, value, onChange, label, columns = "grid-cols-2 
             onClick={() => onChange(o.value)}
             className={`rounded-sheet border text-left transition-colors duration-150 ${
               size === "lg" ? "px-4 py-4" : "px-3.5 py-3"
-            } ${selected ? "border-marker bg-marker text-[rgb(20_36_48)]" : "border-rule bg-sheet hover:border-ink/40"}`}
+            } ${selected ? "border-accent bg-marker text-on-marker" : "border-rule bg-sheet hover:border-ink/40"}`}
           >
             <span className={`block font-medium ${size === "lg" ? "text-lg" : ""}`}>{o.label}</span>
-            {o.hint && <span className={`mt-0.5 block text-xs ${selected ? "text-[rgb(20_36_48)]/70" : "text-graphite"}`}>{o.hint}</span>}
+            {o.hint && <span className={`mt-0.5 block text-xs ${selected ? "text-on-marker/70" : "text-graphite"}`}>{o.hint}</span>}
           </button>
         );
       })}

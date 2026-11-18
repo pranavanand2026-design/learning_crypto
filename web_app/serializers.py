@@ -1,3 +1,4 @@
+import re
 import logging
 from django.db.models import Sum, F
 from rest_framework import serializers
@@ -45,14 +46,30 @@ class UserRegistrationSerializer(SafeModelSerializer):
             self.handle_exception(e, "UserRegistrationSerializer.create")
 
 
+AVATAR_PRESETS = {"comet", "orbit", "spark", "wave", "peak", "bloom", "prism", "tide"}
+AVATAR_MAX_BYTES = 150_000
+AVATAR_DATA_URL = re.compile(r"^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$")
+
+
 class UserProfileSerializer(SafeModelSerializer):
     class Meta:
         model = User
         fields = [
             "id", "email", "display_name",
-            "preferred_currency", "timezone", "date_format",
+            "preferred_currency", "timezone", "date_format", "avatar",
         ]
         read_only_fields = ["id", "email"]
+
+    def validate_avatar(self, value):
+        if not value:
+            return ""
+        if value.startswith("preset:"):
+            if value.split(":", 1)[1] not in AVATAR_PRESETS:
+                raise serializers.ValidationError("Unknown avatar.")
+            return value
+        if len(value) > AVATAR_MAX_BYTES or not AVATAR_DATA_URL.match(value):
+            raise serializers.ValidationError("Upload a PNG, JPEG or WebP image under 100 KB.")
+        return value
 
 # ------------------------------------------------------------------------------
 # Price Serializers

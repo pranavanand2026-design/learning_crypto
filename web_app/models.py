@@ -14,6 +14,8 @@ class User(AbstractUser):
     preferred_currency = models.CharField(max_length=3, default='USD')  
     timezone = models.CharField(max_length=50, default='Australia/Sydney') 
     date_format = models.CharField(max_length=20, default='YYYY-MM-DD')  
+    # "preset:<name>" or a small uploaded image as a data URL (resized client-side).
+    avatar = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)  
     updated_at = models.DateTimeField(auto_now=True)  
 

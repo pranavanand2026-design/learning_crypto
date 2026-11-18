@@ -1516,3 +1516,13 @@ def test_admin_transaction_detail_forbidden_for_non_staff(api_client, user):
     resp = api_client.delete(url)
     assert resp.status_code == 403
     assert resp.data["code"] == 1001
+
+@pytest.mark.django_db
+def test_profile_avatar_preset_and_upload(api_client, user):
+    api_client.force_authenticate(user=user)
+    url = "/api/accounts/profile/"
+    assert api_client.put(url, {"avatar": "preset:comet"}).status_code == 200
+    assert api_client.put(url, {"avatar": "preset:nope"}).status_code == 400
+    png = "data:image/png;base64," + "iVBORw0KGgo="
+    assert api_client.put(url, {"avatar": png}).status_code == 200
+    assert api_client.put(url, {"avatar": "data:image/svg+xml;base64,PHN2Zz4="}).status_code == 400

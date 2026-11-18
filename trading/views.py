@@ -49,6 +49,7 @@ def _num(value):
 def app_config(request):
     return Response({
         "recaptcha_site_key": settings.RECAPTCHA_SITE_KEY if settings.RECAPTCHA_REQUIRED else None,
+        "google_client_id": settings.GOOGLE_CLIENT_ID or None,
         "starting_cash": float(engine.Account._meta.get_field("cash").default),
         "fee_rate": float(market.FEE_RATE),
     })

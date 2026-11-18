@@ -101,23 +101,20 @@ def test_logout_view_blacklists_cookie(api_client, user):
 
 
 @pytest.mark.django_db
-def test_refresh_token_success(api_client, user):
-    api_client.force_authenticate(user=user)
-    api_client.cookies["refresh_token"] = "refresh-token"
-
-    class DummyAccess:
-        def __str__(self):
-            return "new-access"
-
-    class DummyRefresh:
-        def __init__(self):
-            self.access_token = DummyAccess()
-
-    with patch("web_app.views.RefreshToken", return_value=DummyRefresh()):
-        resp = api_client.get(reverse("token-refresh"))
+def test_refresh_token_success_rotates_cookie(api_client):
+    from rest_framework_simplejwt.tokens import RefreshToken
+    u = User.objects.create_user(email="r@example.com", username="r@example.com", password="Password123!", display_name="R")
+    old = RefreshToken.for_user(u)
+    api_client.cookies["refresh_token"] = str(old)
+    resp = api_client.get(reverse("token-refresh"))
     assert resp.status_code == 200
-    assert resp.data["access_token"] == "new-access"
+    assert resp.data["access_token"]
     assert resp.data["code"] == 0
+    new = resp.cookies["refresh_token"].value
+    assert new and new != str(old)
+    # The old refresh token is blacklisted after rotation
+    api_client.cookies["refresh_token"] = str(old)
+    assert api_client.get(reverse("token-refresh")).status_code == 401
 
 
 @pytest.mark.django_db

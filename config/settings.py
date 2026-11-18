@@ -72,10 +72,23 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {"NAME": "web_app.security.LetterAndNumberValidator"},
+    {"NAME": "web_app.security.BreachedPasswordValidator"},
 ]
+
+# Argon2 for new and updated passwords; older hashes are upgraded on next login.
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+]
+PASSWORD_BREACH_CHECK = os.getenv("PASSWORD_BREACH_CHECK", "True") == "True"
+
+# Sign in with Google (Google Identity Services). Leave unset to hide the button.
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
 AUTH_USER_MODEL = "web_app.User"
 

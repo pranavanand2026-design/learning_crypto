@@ -28,13 +28,13 @@ def get_valid_simulation_data(**overrides):
 
 @pytest.mark.django_db
 def test_user_registration_serializer_create_success():
-    data = {"email": "test@example.com", "password": "pass123", "display_name": "Tester"}
+    data = {"email": "test@example.com", "password": "Sturdy-pass-2024", "display_name": "Tester"}
     serializer = UserRegistrationSerializer(data=data)
     assert serializer.is_valid(raise_exception=True)
     user = serializer.save()
     assert user.email == "test@example.com"
     assert user.display_name == "Tester"
-    assert user.check_password("pass123")
+    assert user.check_password("Sturdy-pass-2024")
 
 
 @pytest.mark.django_db
@@ -253,7 +253,7 @@ def test_transaction_serializer_formats_supplied_price():
 
 @pytest.mark.django_db
 def test_user_registration_serializer_handles_exception(monkeypatch):
-    data = {"email": "fail@example.com", "password": "pass123", "display_name": "Fail"}
+    data = {"email": "fail@example.com", "password": "Sturdy-pass-2024", "display_name": "Fail"}
     serializer = UserRegistrationSerializer(data=data)
     serializer.is_valid(raise_exception=True)
 

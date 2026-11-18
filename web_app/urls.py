@@ -6,6 +6,7 @@ urlpatterns = [
     # --- Accounts / Authentication ---
     path("accounts/register/", views.RegisterView.as_view(), name="register"),
     path("accounts/login/", views.login_view, name="login"),
+    path("accounts/google/", views.google_login, name="google-login"),
     path("accounts/logout/", views.logout_view, name="logout"),
     path("accounts/profile/", views.profile_view, name="profile"),
     path("accounts/change-password/", views.change_password, name="change-password"),

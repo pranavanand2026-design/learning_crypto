@@ -47,6 +47,7 @@ from .serializers import (
 )
 from .utils.coingecko import get_markets, get_current_prices, get_coin_market_chart, get_global_market_caps, get_coin_details
 from .utils.currency import convert_amount, normalise as normalise_currency
+from . import security
 
 
 logger = logging.getLogger(__name__)
@@ -143,18 +144,51 @@ def coingecko_proxy(request):
         return safe_response({"detail": "internal server error"}, code=3000, status_code=500)
 
 
+REFRESH_COOKIE_AGE = 7 * 24 * 60 * 60
+
+
+def set_refresh_cookie(response, token):
+    response.set_cookie(
+        key="refresh_token",
+        value=str(token),
+        httponly=True,
+        secure=settings.SECURE_COOKIES,
+        samesite="Lax",
+        max_age=REFRESH_COOKIE_AGE,
+    )
+    return response
+
+
+def issue_session(request, user, extra=None):
+    """Log the user in and return access token + httpOnly refresh cookie."""
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    refresh = RefreshToken.for_user(user)
+    response = safe_response({"user_id": user.id, "email": user.email, "access_token": str(refresh.access_token), **(extra or {})})
+    return set_refresh_cookie(response, refresh)
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def refresh_token(request):
-    refresh_token = request.COOKIES.get("refresh_token")
-    if not refresh_token:
+    """Exchange the refresh cookie for a new access token, rotating the refresh token."""
+    from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+
+    old = request.COOKIES.get("refresh_token")
+    if not old:
         return safe_response({"detail": "No refresh token"}, code=1001, status_code=401)
+    serializer = TokenRefreshSerializer(data={"refresh": old})
     try:
-        refresh = RefreshToken(refresh_token)
-        access_token = str(refresh.access_token)
-        return safe_response({"access_token": access_token}, status_code=200)  
+        serializer.is_valid(raise_exception=True)
     except Exception:
-        return safe_response({"detail": "Invalid refresh token"}, code=1002, status_code=401)
+        response = safe_response({"detail": "Invalid refresh token"}, code=1002, status_code=401)
+        response.delete_cookie("refresh_token", path="/", samesite="Lax")
+        return response
+    data = serializer.validated_data
+    response = safe_response({"access_token": data["access"]}, status_code=200)
+    if data.get("refresh"):
+        set_refresh_cookie(response, data["refresh"])
+    return response
 
 
 # -------------------------------------------------------------------------------
@@ -260,33 +294,55 @@ def login_view(request):
         if settings.RECAPTCHA_REQUIRED and not verify_recaptcha(captcha_token, action="LOGIN"):
             return safe_response({"detail": "captcha verification failed"}, code=1000, status_code=400)
 
+        email = email.strip().lower()
+        ip = security.client_ip(request)
+        until = security.locked_until(email, ip)
+        if until:
+            return safe_response(
+                {"detail": "Too many attempts. Try again later.", "retry_at": until.isoformat()},
+                code=1003, status_code=429,
+            )
+
         user = authenticate(username=email, password=password)
         if user:
-            login(request, user)
-            # Create JWT tokens
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
+            security.clear_failures(email, ip)
+            return issue_session(request, user)
 
-            response = safe_response({
-                "user_id": user.id,
-                "email": user.email,
-                "access_token": access_token,
-            })
-
-            # Set HTTP-only refresh token cookie
-            response.set_cookie(
-                key="refresh_token",
-                value=str(refresh),
-                httponly=True,
-                secure=settings.SECURE_COOKIES,
-                samesite="Lax",
-                max_age=7*24*60*60  # 7 days
-            )
-            return response
-
+        security.record_failure(email, ip)
         return safe_response({"detail": "invalid credentials"}, code=1001, status_code=401)
     except Exception as e:
         return handle_exception(e, "login_view")
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def google_login(request):
+    """Sign in (or sign up) with a Google Identity Services credential."""
+    credential = request.data.get("credential")
+    if not credential:
+        return safe_response({"detail": "Missing Google credential."}, code=1000, status_code=400)
+    try:
+        claims = security.verify_google_credential(credential)
+    except security.GoogleAuthError as exc:
+        return safe_response({"detail": str(exc)}, code=1002, status_code=401)
+
+    email = claims["email"].strip().lower()
+    user = User.objects.filter(email__iexact=email).first()
+    created = False
+    if user is None:
+        user = User(
+            email=email,
+            username=email,
+            display_name=(claims.get("name") or email.split("@")[0])[:100],
+        )
+        user.set_unusable_password()
+        user.save()
+        created = True
+        logger.info("Created account via Google for %s", email)
+    elif not user.is_active:
+        return safe_response({"detail": "This account is disabled."}, code=1002, status_code=403)
+    return issue_session(request, user, {"created": created})
 
 
 @api_view(['POST'])

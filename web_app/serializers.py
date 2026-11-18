@@ -32,6 +32,23 @@ class UserRegistrationSerializer(SafeModelSerializer):
         fields = ("id", "email", "password", "display_name")
         extra_kwargs = {"password": {"write_only": True}}
 
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("An account with this email already exists. Try logging in.")
+        return value
+
+    def validate(self, attrs):
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        candidate = User(email=attrs.get("email", ""), username=attrs.get("email", ""), display_name=attrs.get("display_name", ""))
+        try:
+            validate_password(attrs.get("password", ""), user=candidate)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)})
+        return attrs
+
     def create(self, validated_data):
         try:
             user = User.objects.create_user(
@@ -52,13 +69,18 @@ AVATAR_DATA_URL = re.compile(r"^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]
 
 
 class UserProfileSerializer(SafeModelSerializer):
+    has_password = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             "id", "email", "display_name",
-            "preferred_currency", "timezone", "date_format", "avatar",
+            "preferred_currency", "timezone", "date_format", "avatar", "has_password",
         ]
-        read_only_fields = ["id", "email"]
+        read_only_fields = ["id", "email", "has_password"]
+
+    def get_has_password(self, user):
+        return user.has_usable_password()
 
     def validate_avatar(self, value):
         if not value:

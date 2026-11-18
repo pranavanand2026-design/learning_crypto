@@ -174,13 +174,9 @@
 .slider:focus-visible { outline: none; }
 .slider:focus-visible::-webkit-slider-thumb { outline: 2px solid rgb(var(--accent)); outline-offset: 3px; }
 
-/* Landing hero: the price line draws once, then its moments appear */
-@keyframes hero-draw { from { stroke-dashoffset: 1800; } to { stroke-dashoffset: 0; } }
-@keyframes hero-mark { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.hero-draw { stroke-dasharray: 1800; stroke-dashoffset: 1800; animation: hero-draw 2.2s cubic-bezier(.3,.7,.2,1) .2s forwards; }
-.hero-mark { opacity: 0; animation: hero-mark 500ms ease-out forwards; transform-box: fill-box; }
-@media (max-width: 1279px) { .hero-mark { display: none; } }
-@media (prefers-reduced-motion: reduce) {
-  .hero-draw { stroke-dashoffset: 0; animation: none; }
-  .hero-mark { opacity: 1; animation: none; }
-}
+/* Landing hero: coin stacks rise, then their trees grow, once */
+@keyframes grove-rise { from { transform: scaleY(0); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes grove-grow { from { transform: scale(0.2); opacity: 0; } to { transform: none; opacity: 1; } }
+.grove-rise { transform-box: fill-box; transform-origin: 50% 100%; animation: grove-rise 700ms cubic-bezier(.2,.8,.2,1) both; }
+.grove-grow { transform-box: fill-box; transform-origin: 50% 100%; animation: grove-grow 900ms cubic-bezier(.2,.9,.25,1.15) both; }
+@media (prefers-reduced-motion: reduce) { .grove-rise, .grove-grow { animation: none; } }

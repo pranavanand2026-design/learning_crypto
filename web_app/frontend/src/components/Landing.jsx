@@ -35,9 +35,7 @@ export default function Landing({ rows, ticks }) {
   return (
     <>
       <section className="relative left-1/2 -mt-6 w-screen -translate-x-1/2 overflow-hidden bg-floor text-on-floor md:-mt-10">
-        <div className="opacity-35 xl:opacity-100">
-          <HeroArt />
-        </div>
+        <HeroArt />
         <div className="relative mx-auto max-w-page px-4 pb-16 pt-16 md:px-6 md:pb-28 md:pt-28">
           <h1 className="max-w-4xl text-[2.5rem] font-light leading-[1.04] tracking-tight md:text-[4.25rem]">
             Find out what kind of investor you are, before it costs you.

@@ -1,90 +1,118 @@
-// Background for the landing hero: chart paper, calm contour lines, and one
-// price line annotated with the moments CryptoDash cares about.
-const POINTS = [
-  [0, 372], [110, 352], [210, 380], [320, 330], [420, 346], [510, 292], [600, 314],
-  [690, 240], [770, 266], [850, 200], [930, 226], [1010, 158], [1090, 178], [1200, 116],
+import { useState } from "react";
+
+// Landing hero background: coin stacks that grow into trees. Money, planted
+// patiently, compounding. Original artwork in the brand palette. If a licensed
+// photo is placed at public/hero.jpg it is layered underneath, faded and tinted.
+
+const GROUND = 418;
+const COIN_H = 8;
+const STACKS = [
+  { x: 690, coins: 4, canopy: 30 },
+  { x: 800, coins: 8, canopy: 40 },
+  { x: 915, coins: 13, canopy: 52 },
+  { x: 1045, coins: 19, canopy: 68 },
 ];
 
-/** Smooth a polyline into cubic Béziers (Catmull-Rom). */
-function smooth(points) {
-  let d = `M${points[0][0]},${points[0][1]}`;
-  for (let i = 0; i < points.length - 1; i++) {
-    const [x0, y0] = points[i - 1] || points[i];
-    const [x1, y1] = points[i];
-    const [x2, y2] = points[i + 1];
-    const [x3, y3] = points[i + 2] || points[i + 1];
-    d += ` C${x1 + (x2 - x0) / 6},${y1 + (y2 - y0) / 6} ${x2 - (x3 - x1) / 6},${y2 - (y3 - y1) / 6} ${x2},${y2}`;
-  }
-  return d;
-}
-
-// Sit the line low and to the right so it never runs under the headline.
-const LIFT = 92;
-for (const pt of POINTS) pt[1] += LIFT;
-
-const LINE = smooth(POINTS);
-const CONTOURS = [48, 96, 150, 210].map((dy, k) =>
-  smooth(POINTS.map(([x, y], i) => [x, y + dy + Math.sin(i * 1.3 + k) * (10 + k * 4)])),
-);
-const MARKS = [
-  { at: 7, label: "Bought, 70% sure", delay: 1.3 },
-  { at: 9, label: "Checked: called it", delay: 1.7 },
-  { at: 11, label: "Held my plan", delay: 2.1 },
+// A soft cluster of leaves: fixed offsets so the shape is stable across renders.
+const LEAVES = [
+  [0, 0, 1], [-0.62, 0.18, 0.72], [0.62, 0.16, 0.74], [-0.34, -0.42, 0.7], [0.36, -0.44, 0.7],
+  [0, -0.7, 0.6], [-0.85, -0.2, 0.5], [0.86, -0.18, 0.52], [-0.2, 0.4, 0.62], [0.28, 0.42, 0.6],
 ];
 
-export default function HeroArt() {
+function Stack({ x, coins, canopy, i }) {
+  const top = GROUND - coins * COIN_H;
+  const trunkTop = top - canopy * 1.25;
+  const cy = trunkTop - canopy * 0.35;
+  const delay = 0.25 + i * 0.22;
   return (
-    <svg
-      className="pointer-events-none absolute inset-0 h-full w-full"
-      viewBox="0 0 1200 500"
-      preserveAspectRatio="xMaxYMid slice"
-      aria-hidden
-    >
-      <defs>
-        <pattern id="hero-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-          <path d="M40 0H0V40" fill="none" stroke="rgb(var(--on-floor))" strokeOpacity="0.07" strokeWidth="1" />
-        </pattern>
-        <linearGradient id="hero-fade" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0.25" stopColor="#fff" stopOpacity="0" />
-          <stop offset="0.6" stopColor="#fff" stopOpacity="1" />
-        </linearGradient>
-        <mask id="hero-mask">
-          <rect width="1200" height="500" fill="url(#hero-fade)" />
-        </mask>
-        <radialGradient id="hero-glow" cx="0.82" cy="0.3" r="0.55">
-          <stop offset="0" stopColor="rgb(var(--accent-hi))" stopOpacity="0.16" />
-          <stop offset="1" stopColor="rgb(var(--accent-hi))" stopOpacity="0" />
-        </radialGradient>
-        <filter id="hero-blur" x="-10%" y="-50%" width="120%" height="200%">
-          <feGaussianBlur stdDeviation="6" />
-        </filter>
-      </defs>
-
-      <rect width="1200" height="500" fill="url(#hero-glow)" />
-      <g mask="url(#hero-mask)">
-        <rect width="1200" height="500" fill="url(#hero-grid)" />
-        {CONTOURS.map((d, i) => (
-          <path key={i} d={d} fill="none" stroke="rgb(var(--accent-hi))" strokeOpacity={0.14 - i * 0.025} strokeWidth="1.2" />
-        ))}
-        <path d={LINE} fill="none" stroke="rgb(var(--accent-hi))" strokeOpacity="0.45" strokeWidth="8" filter="url(#hero-blur)" className="hero-draw" />
-        <path d={LINE} fill="none" stroke="rgb(var(--accent-hi))" strokeWidth="2.5" strokeLinecap="round" className="hero-draw" />
-        {MARKS.map(({ at, label, delay }) => {
-          const [x, y] = POINTS[at];
-          const w = label.length * 7.4 + 24;
+    <g>
+      {/* shadow */}
+      <ellipse cx={x} cy={GROUND + 10} rx={58} ry={9} fill="rgb(0 0 0)" fillOpacity="0.22" />
+      {/* coins */}
+      <g className="grove-rise" style={{ animationDelay: `${delay}s` }}>
+        {Array.from({ length: coins }, (_, c) => {
+          const y = GROUND - c * COIN_H;
           return (
-            <g key={label} className="hero-mark" style={{ animationDelay: `${delay}s` }}>
-              <circle cx={x} cy={y} r="11" fill="rgb(var(--accent-hi))" fillOpacity="0.18" />
-              <circle cx={x} cy={y} r="5" fill="rgb(var(--floor))" stroke="rgb(var(--accent-hi))" strokeWidth="2.5" />
-              <g transform={`translate(${x - w / 2}, ${y - 52})`}>
-                <rect width={w} height="28" rx="14" fill="rgb(var(--floor))" stroke="rgb(var(--accent-hi))" strokeOpacity="0.5" />
-                <text x={w / 2} y="18.5" textAnchor="middle" fontSize="13" fill="rgb(var(--on-floor))" fillOpacity="0.9" fontFamily="Geist Variable, sans-serif">
-                  {label}
-                </text>
-              </g>
+            <g key={c}>
+              <path
+                d={`M${x - 42},${y - 4} v${COIN_H} a42,11 0 0 0 84,0 v-${COIN_H}`}
+                fill="url(#coin-side)"
+                stroke="rgb(var(--accent-hi))"
+                strokeOpacity="0.25"
+                strokeWidth="0.8"
+              />
             </g>
           );
         })}
+        <ellipse cx={x} cy={top - 4} rx={42} ry={11} fill="url(#coin-top)" stroke="rgb(var(--accent-hi))" strokeOpacity="0.45" />
+        <ellipse cx={x} cy={top - 4} rx={30} ry={7.5} fill="none" stroke="rgb(var(--accent-hi))" strokeOpacity="0.3" />
       </g>
-    </svg>
+      {/* tree */}
+      <g className="grove-grow" style={{ animationDelay: `${delay + 0.55}s` }}>
+        <path
+          d={`M${x},${top - 4} C${x - 3},${top - canopy * 0.5} ${x + 4},${top - canopy * 0.9} ${x},${trunkTop}`}
+          stroke="#7A6A55"
+          strokeWidth={Math.max(2.5, canopy / 12)}
+          strokeLinecap="round"
+          fill="none"
+        />
+        <path d={`M${x},${top - canopy * 0.7} q${canopy * 0.25},-${canopy * 0.2} ${canopy * 0.4},-${canopy * 0.45}`} stroke="#7A6A55" strokeWidth="2" fill="none" strokeLinecap="round" />
+        {LEAVES.map(([dx, dy, r], k) => (
+          <circle key={k} cx={x + dx * canopy} cy={cy + dy * canopy} r={r * canopy * 0.62} fill={k % 3 === 0 ? "#3E9A78" : k % 3 === 1 ? "#2E7D62" : "#57AE8A"} />
+        ))}
+        <circle cx={x - canopy * 0.25} cy={cy - canopy * 0.3} r={canopy * 0.55} fill="url(#leaf-light)" />
+      </g>
+    </g>
+  );
+}
+
+export default function HeroArt() {
+  const [photo, setPhoto] = useState(true);
+  return (
+    <div className="pointer-events-none absolute inset-0" aria-hidden>
+      {photo && (
+        <img
+          src="/hero.jpg"
+          alt=""
+          onError={() => setPhoto(false)}
+          className="absolute inset-0 h-full w-full object-cover opacity-25 mix-blend-luminosity"
+        />
+      )}
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1200 500" preserveAspectRatio="xMaxYMax slice">
+        <defs>
+          <linearGradient id="coin-side" x1="0" x2="1">
+            <stop offset="0" stopColor="#5E7F74" />
+            <stop offset="0.45" stopColor="#B9D3C7" />
+            <stop offset="1" stopColor="#4C6A60" />
+          </linearGradient>
+          <linearGradient id="coin-top" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stopColor="#D8E9E0" />
+            <stop offset="1" stopColor="#8FAEA2" />
+          </linearGradient>
+          <radialGradient id="leaf-light">
+            <stop offset="0" stopColor="#B8E6CF" stopOpacity="0.45" />
+            <stop offset="1" stopColor="#B8E6CF" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="sun" cx="0.92" cy="0.05" r="0.75">
+            <stop offset="0" stopColor="#F3E9C6" stopOpacity="0.22" />
+            <stop offset="0.5" stopColor="#8FD6B4" stopOpacity="0.07" />
+            <stop offset="1" stopColor="#8FD6B4" stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id="table" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor="#ECF3EF" stopOpacity="0.07" />
+            <stop offset="1" stopColor="#ECF3EF" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <rect width="1200" height="500" fill="url(#sun)" />
+        <rect x="0" y={GROUND - 6} width="1200" height={500 - GROUND + 6} fill="url(#table)" />
+        <g opacity="0.55">
+          {STACKS.map((s, i) => (
+            <Stack key={s.x} {...s} i={i} />
+          ))}
+        </g>
+      </svg>
+      {/* keep the text side calm */}
+      <div className="absolute inset-0 bg-gradient-to-r from-floor via-floor/80 to-transparent md:via-floor/40" />
+    </div>
   );
 }
